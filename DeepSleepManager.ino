@@ -119,8 +119,8 @@ void setup() {
   Serial.println(MyDeepSleepManager.WiFiLocked);
   Serial.print("MyDeepSleepManager.bootCounter = ");
   Serial.println(MyDeepSleepManager.bootCounter);
-  Serial.print("MyDeepSleepManager.estimatedSleepTime = ");
-  Serial.println(MyDeepSleepManager.estimatedSleepTime);
+  Serial.print("MyDeepSleepManager.remainingTime = ");
+  Serial.println(MyDeepSleepManager.remainingTime);
 
 
 
