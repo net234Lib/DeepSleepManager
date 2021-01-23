@@ -1,0 +1,30 @@
+#######################################
+# Syntax Coloring Map for BetaEvents
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+DeepSleepManager	KEYWORD1
+
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+getRstReason	KEYWORD2
+startDeepSleep	KEYWORD2
+WiFiUnlock	KEYWORD2
+WiFiLocked	KEYWORD2
+
+#######################################
+# Instances (KEYWORD2)
+#######################################
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+REASON_USER_BUTTON	LITERAL1
+REASON_RESTORE_WIFI	LITERAL1

@@ -26,11 +26,11 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   // get ESP reset reason
   rst_info* resetInfoPtr = ESP.getResetInfoPtr();
   rstReason = (resetInfoPtr->reason);
-  WiFiActive = true;
+  WiFiLocked = false;
   // adjust ESP rstReason if bp is down or cold boot
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
     if (bpStatus == LOW ) rstReason = REASON_USER_BUTTON;
-    WiFiActive = false;
+    WiFiLocked = true;
   }
 
   // adjust ESP rstReason if RTC memory not initialised
@@ -50,7 +50,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   if (savedRTCmemory.lastSleepTime == -1) {
     rstReason = REASON_RESTORE_WIFI;
     savedRTCmemory.lastSleepTime = 0;
-    WiFiActive = true;
+    WiFiLocked = false;
   } 
   if (rstReason == REASON_DEEP_SLEEP_AWAKE) savedRTCmemory.estimatedSleepTime += savedRTCmemory.lastSleepTime;
 
@@ -78,11 +78,11 @@ void DeepSleepManager::startDeepSleep(const uint16_t sleepTimeSeconds) {
   if (savedRTCmemory.lastSleepTime > 3 * 3600) savedRTCmemory.lastSleepTime = 3 * 3600;
   // Serial.println(F("-> PowerDown "));
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
-  ESP.deepSleep(savedRTCmemory.lastSleepTime * 1E6, RF_DISABLED);
+  ESP.deepSleep(savedRTCmemory.lastSleepTime * 1.004 * 1E6 - micros() - 149300, RF_DISABLED);  //2094
   while (true) delay(1);
 }
 
-void DeepSleepManager::restoreWiFi() {
+void DeepSleepManager::WiFiUnlock() {
   savedRTCmemory.lastSleepTime = -1;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   ESP.deepSleep(100L * 1000, RF_DEFAULT);   //reset in 100 ms to clear RF_DISABLED
