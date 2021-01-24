@@ -11,7 +11,6 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 
-
 #define APP_VERSION   "DeepSleep24Hours"
 
 // GPIO2 on ESP32
@@ -34,60 +33,26 @@
 // A user button so we can abort a very long deep sleep (here BP0)
 #include "DeepSleepManager.h"
 
-//// restart reason keywords
-////enum rst_reason {
-//// REASON_DEFAULT_RST = 0, /* normal startup by power on */
-//// REASON_WDT_RST = 1, /* hardware watch dog reset */
-//// REASON_EXCEPTION_RST = 2, /* exception reset, GPIO status won't change */
-//// REASON_SOFT_WDT_RST   = 3, /* software watch dog reset, GPIO status won't change */
-//// REASON_SOFT_RESTART = 4, /* software restart ,system_restart , GPIO status won't change */
-//// REASON_DEEP_SLEEP_AWAKE = 5, /* wake up from deep-sleep */
-//// REASON_EXT_SYS_RST      = 6 /* external system reset */
-////};
-//// specific reason to
-//#define REASON_USER_BUTTON  10
-////( (rst_reason)10)
-//#define REASON_RESTORE_WIFI 11
-//#define REASON_NOT_INITED   12
-
+// instance for  the DeepSleepManager
 DeepSleepManager MyDeepSleepManager;
-# define TIMER_DEEPSLEEP 60  // Laps for the DeepSleep in seconds
 
+// status of push button connected on D7
 bool bp0Status;
 
 
 void setup() {
-  // Setup BP0  (stop button)
+  // Setup BP0  
   pinMode( BP0, INPUT_PULLUP);
 
-  // init Serial
-
   if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
+
+    // here we start serial to show that we are awake     
     Serial.begin(115200);
-    Serial.println(F("\r" APP_VERSION));
-    //    bp0Status = digitalRead(BP0);
-    //    Serial.print(("BP_0 = "));
-    //    Serial.println(bp0Status);
-    //    bpD0Status = digitalRead(D0);
-    //    Serial.print(("BP_D0 = "));
-    //    Serial.println(bpD0Status);
-    //
+    Serial.print(F("\n" APP_VERSION " - "));
     Serial.print("MyDeepSleepManager.remainingTime = ");
     Serial.println(MyDeepSleepManager.remainingTime);
-    //    Serial.print("MyDeepSleepManager.WiFiLocked = ");
-    //    Serial.println(MyDeepSleepManager.WiFiLocked);
-    //    Serial.print("MyDeepSleepManager.bootCounter = ");
-    //    Serial.println(MyDeepSleepManager.bootCounter);
-    //    Serial.print("MyDeepSleepManager.estimatedSleepTime = ");
-    //    Serial.println(MyDeepSleepManager.estimatedSleepTime);
-    //
-    //    // put here the code you want to do with minimal power (not with WiFi)
-    //    // remember that we just rebooted so you cant read back data from standard variables (use RTCmemory)
-    //    // if you dont have anything more to do go back to sleep with a MyDeepSleepManager.startDeepSleep(time_in_seconds)
-    //    // you will be back here in "time_in_seconds" and this number can be more than one year (1 year = 356 * 24 * 60 * 60)
-    //
-    //    Serial.println("-->Go backto sleep");
-    //Serial.println(micros());
+    
+
     MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
   }
   // we are here because longDeepSleep is fully elapsed
@@ -104,7 +69,8 @@ void setup() {
   switch (MyDeepSleepManager.getRstReason()) {
     case REASON_DEFAULT_RST:  Serial.println(F("->Cold boot")); break;
     case REASON_EXT_SYS_RST:  Serial.println(F("->boot with BP Reset")); break;
-    case REASON_DEEP_SLEEP_AWAKE:  Serial.println(F("->boot from a deep sleep")); break;
+    case REASON_DEEP_SLEEP_AWAKE:  Serial.println(F("->boot from a deep sleep pending")); break;
+    case REASON_DEEP_SLEEP_TERMINATED: Serial.println(F("->boot from a deep sleep terminated")); break;
     case REASON_USER_BUTTON: Serial.println(F("->boot from a deep sleep aborted with BP User")); break;
     case REASON_SOFT_RESTART: Serial.println(F("->boot after a soft Reset")); break;
     default:
@@ -121,18 +87,6 @@ void setup() {
 
 
 
-  //// if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will to a restart to unlock wifi
-  //  if ( MyDeepSleepManager.WiFiLocked) {
-  //    Serial.println("-->Restore WiFi");
-  //    MyDeepSleepManager.WiFiUnlock();
-  //    // !! restore WiFi will make a special reset so we never arrive here !!
-  //  }
-
-  //  Serial.print("Wifi Mode=");
-  //  Serial.println(WiFi.getMode());
-
-
-
   Serial.println(F( APP_VERSION ));
 
 
@@ -146,11 +100,14 @@ void setup() {
 
   Serial.println(F("Bonjour ..."));
 
-  Serial.print(F("compteur = "));
-  Serial.println(MyDeepSleepManager.bootCounter);
   Serial.println(F("Type S for DeepSleep 24 Hours"));
-  Serial.println(F("To abort DeepSleep press and hold BP0 and press RESET"));
-  Serial.println(F("RESET only will just skip 1 hours in the deep sleep time"));
+  Serial.println(F("Type T for DeepSleep 1 Minute"));
+  Serial.println(F("Type U for DeepSleep 5 Minute"));
+  Serial.println(F("Type V for DeepSleep 1 Hour"));
+  Serial.println(F("RESET only will just skip 1 increment in the deep sleep time"));
+  Serial.println(F("To full abort DeepSleep press and hold BP0 and press RESET"));
+  Serial.println(F("press BP0 4 seconds to start DeepSleep 15 seconds"));
+  Serial.println(F(">"));
 
   bp0Status = !digitalRead(BP0);
 }
@@ -159,18 +116,27 @@ void loop() {
   if (Serial.available()) {
     char aChar = (char)Serial.read();
     if (aChar == 'S') {
-      Serial.println(F("-- strt DeepSleep for 24 Hours"));
-      Serial.println(F("   each press on reset will SKIP 2 hours"));
-      MyDeepSleepManager.startDeepSleep(24 * 60 * 60); // start a deepSleepMode with 2 hours incremental
+      Serial.println(F("-- start DeepSleep for 24 Hours"));
+      Serial.println(F("   each press on RESET will skip 1 hours"));
+      Serial.println(F("<-- GO"));
+      MyDeepSleepManager.startDeepSleep(24 * 60 * 60, 60 * 60); // start a deepSleepMode with 1 hours incremental
     }
 
     if (aChar == 'T') {
-      Serial.println(F("-- strat DeepSleep for 1 Minute with a 10 Second incremental"));
+      Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
+      Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 60 , 10 );
     }
 
     if (aChar == 'U') {
-      Serial.println(F("-- strat DeepSleep for 1 Hour with a 1 Minute incremental"));
+      Serial.println(F("-- start DeepSleep for 5 Minutes with a 30 Seconds incremental"));
+      Serial.println(F("<-- GO"));
+      MyDeepSleepManager.startDeepSleep( 5 * 60 , 30 );
+    }
+
+    if (aChar == 'V') {
+      Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
+      Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
     }
 
@@ -202,14 +168,14 @@ void loop() {
     digitalWrite( LED1 , LED1_ON );
     if (bp0Status == BP0_DOWN) {
       lastDown = millis();
-    } else {
-      // start a deepsleep 15 sec with long press BP0
-      if ( millis() - lastDown  > 3000 ) {
-        Serial.print(F("DeepSleep 10 sec"));
-        MyDeepSleepManager.startDeepSleep(10);
-      }
     }
   }
 
-  delay(10);
+  // if you want to start deep sleep without terminale connected
+  // start a deepsleep 15 sec with a long press BP0
+  if (bp0Status == BP0_DOWN && millis() - lastDown  > 3000 ) {
+    Serial.println(F("DeepSleep 15 sec"));
+    MyDeepSleepManager.startDeepSleep(15);
+  }
+  delay(10);  // avoid rebounce of BP0 easy way :)
 }
