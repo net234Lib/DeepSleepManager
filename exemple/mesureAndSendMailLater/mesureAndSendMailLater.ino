@@ -40,8 +40,8 @@
 #define BP0_DOWN LOW
 
 
-#include <Time.h>
-
+//#include <Time.h>
+#include <TimeLib.h>
 
 // instance for  the DeepSleepManager
 #include <DeepSleepManager.h>
@@ -70,7 +70,7 @@ void setup() {
 
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE  || rstReason == REASON_DEEP_SLEEP_TERMINATED ) {
-
+    setTime(MyDeepSleepManager.GMTBootTime);
     // here we start serial to show that we are awake
     Serial.begin(115200);
     Serial.print(F("\n" APP_VERSION " - "));
@@ -79,10 +79,10 @@ void setup() {
 
     Serial.print("time() = ");
 
-    time_t now = time(nullptr);
-    Serial.print(now);
+    time_t anow = now();
+    Serial.print(anow);
     Serial.print(F(" - "));
-    Serial.println(ctime(&now));
+    Serial.println(ctime(&anow));
 
     // Init DHT11 and get Values
     MyDHT11.setup(D6, DHTesp::DHT11); // Connect DHT sensor to D6
@@ -94,7 +94,7 @@ void setup() {
     if (!f) {
       Serial.println("file open failed");
     } else {
-      f.print(now);
+      f.print(anow);
       f.print("\t");
       f.print(MyDHT11.getStatusString());
       f.print("\t");
@@ -215,9 +215,9 @@ void loop() {
       //      captive.apple.com
       //      connectivitycheck.gstatic.com
       //      detectportal.firefox.com
-      https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
-      #define CAPTIVE "www.msftncsi.com"
-      
+      //  https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
+#define CAPTIVE "www.msftncsi.com"
+
       Serial.println(F("connect to " CAPTIVE ));
 
       HTTPClient http;  //Declare an object of class HTTPClient
@@ -230,9 +230,56 @@ void loop() {
       int httpCode = http.GET();                                  //Send the request
       Serial.print(F("http.GET()="));
       Serial.println(httpCode);
+      tm dateStruct;
+      //      tm_sec  int seconds after the minute  0-61*
+      //tm_min  int minutes after the hour  0-59
+      //tm_hour int hours since midnight  0-23
+      //tm_mday int day of the month  1-31
+      //tm_mon  int months since January  0-11
+      //tm_year int years since 1900
+      //tm_wday int days since Sunday 0-6
+      //tm_yday int days since January 1  0-365
+      //tm_isdst  int Daylight Saving Time flag
+
+
       if (httpCode > 0) { //Check the returning code
         String headerDate = http.header(headerKeys[0]);
         Serial.println(headerDate);
+        if (headerDate.endsWith(" GMT")) {
+          Serial.println(F("Analyse date serveur"));
+          int aSize = headerDate.length();
+
+          dateStruct.tm_sec = headerDate.substring(aSize - 6, aSize - 4).toInt();
+          dateStruct.tm_min = headerDate.substring(aSize - 9, aSize - 7).toInt();
+          dateStruct.tm_hour = headerDate.substring(aSize - 12, aSize - 10).toInt();
+          dateStruct.tm_year = headerDate.substring(aSize - 17, aSize - 13).toInt() - 1900;
+          const String monthName = F("JanFebMarAprJunJulAugSepOctNovDec");
+          dateStruct.tm_mon = monthName.indexOf(headerDate.substring(aSize - 21, aSize - 18)) / 3;
+          dateStruct.tm_mday = headerDate.substring(aSize - 24, aSize - 22).toInt();
+
+          Serial.print(dateStruct.tm_hour); Serial.print(":");
+          Serial.print(dateStruct.tm_min); Serial.print(":");
+          Serial.print(dateStruct.tm_sec); Serial.print(" ");
+          Serial.print(dateStruct.tm_mday); Serial.print("/");
+          Serial.print(dateStruct.tm_mon); Serial.print("/");
+          Serial.print(dateStruct.tm_year); Serial.println(" ");
+          time_t anow = mktime(&dateStruct) + 3600;
+          Serial.print("Server time = ");
+          Serial.print(anow);
+          Serial.print(F(" - ctime() = "));
+          Serial.println(ctime(&anow));
+          Serial.print("Local  time = ");
+          time_t bnow = now();
+          Serial.print(bnow);
+          Serial.print(F(" - ctime() = "));
+          Serial.println(ctime(&bnow));
+
+          Serial.print("timeStatus()=");
+          Serial.println(timeStatus());
+          setTime(anow);
+          Serial.print("timeStatus()=");
+          Serial.println(timeStatus());
+        }
 
         //Date: Mon, 25 Jan 2021 21:18:52 GMT
         String payload = http.getString();   //Get the request response payload
@@ -243,22 +290,13 @@ void loop() {
       http.end();   //Close connection
 
 
-      //      if (client.connect("captive.apple.com", 80)) {
-      //        Serial.println("connected");
-      //        // Make a HTTP request:
-      //        client.println("GET / HTTP/1.0");
-      //        client.println("Host: captive.apple.com");
-      //        client.println("User-Agent: ardui/1.0");
-      //        client.println("Accept: */*");
-      //        client.println();
-      //        String line;
-      //        do {
-      //          line = client.readStringUntil('\r');
-      //          Serial.print(line);
-      //        } while (line != "");
-      //        Serial.println("closing connection");
-      //        client.stop();
-      //      }
+      Serial.print("time() = ");
+
+      time_t anow = now();
+      Serial.print(anow);
+      Serial.print(F(" - ctime() = "));
+      Serial.println(ctime(&anow));
+
 
     }
   }
@@ -275,18 +313,21 @@ void loop() {
     if (aChar == 'T') {
       Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
       Serial.println(F("<-- GO"));
+      MyDeepSleepManager.GMTBootTime = now();
       MyDeepSleepManager.startDeepSleep( 60 , 10 );
     }
 
     if (aChar == 'U') {
       Serial.println(F("-- start DeepSleep for 5 Minutes with a 30 Seconds incremental"));
       Serial.println(F("<-- GO"));
+      MyDeepSleepManager.GMTBootTime = now();
       MyDeepSleepManager.startDeepSleep( 5 * 60 , 30 );
     }
 
     if (aChar == 'V') {
       Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
       Serial.println(F("<-- GO"));
+      MyDeepSleepManager.GMTBootTime = now();
       MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
     }
 
@@ -324,6 +365,16 @@ void loop() {
       Serial.print(F("-- Soft reset"));
       ESP.reset();
     }
+    if (aChar == 'N') {
+      time_t anow = now();
+      Serial.print(F(" now() = "));
+      Serial.println(ctime(&anow));
+      anow = time(nullptr);
+      Serial.print(F(" time() = "));
+      Serial.println(ctime(&anow));
+
+    }
+
   }
   static uint32_t lastDown = millis();
   if ( bp0Status != digitalRead(BP0) ) {
