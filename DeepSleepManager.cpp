@@ -43,6 +43,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.bootCounter = 0;
     savedRTCmemory.increment = 0;
     savedRTCmemory.remainingTime = 0;
+    savedRTCmemory.GMTTime = 0;
     rstReason = REASON_DEFAULT_RST;  // most of time never seen cause a second rst cause a REASON_EXT_SYS_RST came ?
   }
   savedRTCmemory.bootCounter++;
@@ -52,6 +53,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.increment = 0;
     WiFiLocked = false;
   }
+  GMTBootTime = savedRTCmemory.GMTTime;
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
 
   remainingTime = savedRTCmemory.remainingTime;
@@ -74,7 +76,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.remainingTime = sleepTimeSeconds;
-  
+
   uint16_t nextIncrement = increment;
   if (nextIncrement == 0) nextIncrement = 3 * 60 * 60;
   savedRTCmemory.increment = nextIncrement;
@@ -82,6 +84,7 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
     nextIncrement = savedRTCmemory.remainingTime;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
+  savedRTCmemory.GMTTime = GMTBootTime + nextIncrement;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - 149300, RF_DISABLED);  //2094
 }
@@ -92,6 +95,7 @@ void DeepSleepManager::continueDeepSleep() {
     nextIncrement = savedRTCmemory.remainingTime;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
+  savedRTCmemory.GMTTime = GMTBootTime + nextIncrement + millis()/10000;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , RF_DISABLED);  //2094
 }

@@ -44,7 +44,7 @@ class DeepSleepManager {
     bool     WiFiLocked;          // true if wifi is locked (awake from a deep sleep)
     uint16_t bootCounter;         // Number of reboot since power on
     uint32_t remainingTime;  // Number of second since deepsleep started
-
+    time_t   GMTBootTime;
 
   private:
     uint8_t  rstReason = REASON_NOT_INITED;    // reason of restart adjusted from ESP.getResetInfoPtr();
@@ -54,6 +54,7 @@ class DeepSleepManager {
       uint16_t  bootCounter;          // Number of reboot since power on
       int16_t   increment;            // increment requested // -1 if it is a wifi restore
       uint32_t  remainingTime;        // time to spend before end of PowerDown
+      time_t    GMTTime;              // keep track of time
     } savedRTCmemory;
 
 
