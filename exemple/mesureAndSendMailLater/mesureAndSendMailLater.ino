@@ -30,8 +30,9 @@
 #include "private.h"
 
 #define APP_VERSION   "DeepSleep24Hours"
-#define MAIL_ADRESSE  PRIVATE_MAIL_ADRESSE // replace with your test adresse
-
+#define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
+#define SMTP_SERVER   "smtp.free.fr"       // replace with your FAI smtp server
+#define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
@@ -232,7 +233,7 @@ void loop() {
         Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
         Serial.print("powerTime = ");
         Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
-        if (sendDataCsvTo(MAIL_ADRESSE)) {
+        if ( sendDataCsvTo(SEND_TO) ) {
           Serial.println(F("Mail sended"));
           Serial.println(F("Erase data.csv"));
           MyFS.remove("/data.csv");
@@ -421,11 +422,97 @@ bool connectedToInternet() {
   String payload = http.getString();   //Get the request response payload
   //Serial.println(payload);             //Print the response payload
   http.end();   //Close connection
+  return true;
 }
 
+// Just standard SMTP mail
+//https://fr.wikipedia.org/wiki/Simple_Mail_Transfer_Protocol
+//telnet smtp.xxxx.xxxx 25
+//Connected to smtp.xxxx.xxxx.
+//220 smtp.xxxx.xxxx SMTP Ready
+//HELO client
+//250-smtp.xxxx.xxxx
+//250-PIPELINING
+//250 8BITMIME
+//MAIL FROM: <auteur@yyyy.yyyy>
+//250 Sender ok
+//RCPT TO: <destinataire@xxxx.xxxx>
+//250 Recipient ok.
+//DATA
+//354 Enter mail, end with "." on a line by itself
+//Subject: Test
+//
+//Corps du texte
+//.
+//250 Ok
+//QUIT
+//221 Closing connection
+//Connection closed by foreign host.
 
 bool sendDataCsvTo(const String sendto)  {
   Serial.print("Send data.csv to ");
-  Serial.print(sendto);
-  return false; 
+  Serial.println(sendto);
+  WiFiClient tcp;  //Declare an object of class Client to make a TCP connection
+  String aLine;    // to get answer of SMTP
+  if ( !tcp.connect(SMTP_SERVER, 25) ) {
+    Serial.println("unable to connect with " SMTP_SERVER ":25" );
+    return false;
+  }
+  bool mailOk = false;
+  do {
+    Serial.println("connected with " SMTP_SERVER ":25" );
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("220 "))  break;  //  not goog answer
+
+    Serial.println( "HELO arduino" );
+    tcp.print("HELO arduino \r\n");
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+
+    Serial.println( "MAIL FROM: " SEND_FROM );
+    tcp.print("MAIL FROM: " SEND_FROM "\r\n");
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+
+    Serial.println( "RCPT TO: " + sendto );
+    tcp.print("RCPT TO: " + sendto + "\r\n");
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+
+    Serial.println( "DATA" );
+    tcp.print("DATA\r\n");
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("354 "))  break;  //  not goog answer
+
+    Serial.println( "Mail itself" );
+    tcp.print("Subject: test mail from arduino\r\n");
+    tcp.print("ceci est un mail de test\r\n");
+    tcp.print("destine a valider la connection\r\n");
+    tcp.print("au serveur SMTP\r\n");
+    tcp.print("\r\n");
+    tcp.print("\r\n.\r\n");
+    aLine = tcp.readStringUntil('\n');
+    D_println(aLine);
+    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+
+    mailOk = true;
+    break;
+  } while (false);
+  D_println(mailOk);
+
+  String answer, line;
+  do {
+    line = tcp.readStringUntil('\r');
+    answer += line;
+    D_println(line);
+  } while (line != "");
+  D_println(answer);
+  Serial.println( "Stop TCP connection" );
+  tcp.stop();
+  return false;
 }
