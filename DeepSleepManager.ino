@@ -118,9 +118,9 @@ void setup() {
   Serial.print("MyDeepSleepManager.WiFiLocked = ");
   Serial.println(MyDeepSleepManager.WiFiLocked);
   Serial.print("MyDeepSleepManager.bootCounter = ");
-  Serial.println(MyDeepSleepManager.bootCounter);
+  Serial.println(MyDeepSleepManager.getBootCounter());
   Serial.print("MyDeepSleepManager.remainingTime = ");
-  Serial.println(MyDeepSleepManager.remainingTime);
+  Serial.println(MyDeepSleepManager.getRemainingTime());
 
 
 
@@ -154,7 +154,7 @@ void setup() {
   Serial.println(F("Bonjour ..."));
 
   Serial.print(F("compteur = "));
-  Serial.println(MyDeepSleepManager.bootCounter);
+  Serial.println(MyDeepSleepManager.getBootCounter());
   Serial.println(F("Type S for DeepSleep"));
   //  Serial.print(F("RTC Time="));
   //  Serial.println(system_get_rtc_time());

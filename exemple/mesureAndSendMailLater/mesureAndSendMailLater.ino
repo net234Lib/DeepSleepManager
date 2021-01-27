@@ -16,6 +16,9 @@
 
 */
 
+#define D_println(x) Serial.print(#x " => '"); Serial.print(x); Serial.println("'");
+
+
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
@@ -40,8 +43,6 @@
 #define BP0_DOWN LOW
 
 
-//#include <Time.h>
-#include <TimeLib.h>
 
 // instance for  the DeepSleepManager
 #include <DeepSleepManager.h>
@@ -69,48 +70,54 @@ void setup() {
   pinMode( BP0, INPUT_PULLUP);
 
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
+  //setTime(MyDeepSleepManager.getBootTimestamp());  // set the local system time
+
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE  || rstReason == REASON_DEEP_SLEEP_TERMINATED ) {
-    setTime(MyDeepSleepManager.GMTBootTime);
+
+
+
     // here we start serial to show that we are awake
     Serial.begin(115200);
     Serial.print(F("\n" APP_VERSION " - "));
-    Serial.print("MyDeepSleepManager.remainingTime = ");
-    Serial.println(MyDeepSleepManager.remainingTime);
+    D_println(MyDeepSleepManager.getBootCounter());
+    D_println(MyDeepSleepManager.getRemainingTime());
 
-    Serial.print("time() = ");
-
-    time_t anow = now();
-    Serial.print(anow);
-    Serial.print(F(" - "));
-    Serial.println(ctime(&anow));
 
     // Init DHT11 and get Values
     MyDHT11.setup(D6, DHTesp::DHT11); // Connect DHT sensor to D6
     TempAndHumidity  dht11Values = MyDHT11.getTempAndHumidity();
 
-    // Init FS system and save Value on  local File:data.csv
+    // Get local time
+    time_t localTime = now();
+    D_println(Ctime(localTime));
+
+
+
+    // Init FS system and save Value and localTime on  local File:data.csv
     MyFS.begin();
     File f = MyFS.open("/data.csv", "a");
     if (!f) {
-      Serial.println("file open failed");
+      Serial.println("!!file open failed!!");
     } else {
-      f.print(anow);
-      f.print("\t");
-      f.print(MyDHT11.getStatusString());
+      f.print(localTime);
       f.print("\t");
       f.print(dht11Values.humidity, 1);
       f.print("\t");
       f.print(dht11Values.temperature, 1);
+      f.print("\t");
+      f.print(MyDHT11.getStatusString());
       f.println();
-      Serial.print(F("File Size = "));
-      Serial.println(f.size());
+      D_println(f.size());
       f.close();
 
     }
     MyFS.end();
-    if ( rstReason == REASON_DEEP_SLEEP_AWAKE) MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
+
+    if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
+      MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
+    }
   }
-  // we are here because longDeepSleep is fully elapsed
+  // we are here because longDeepSleep is fully elapsed or user pressed BP0
 
 
   digitalWrite(LED1, LED1_ON);
@@ -118,9 +125,6 @@ void setup() {
   Serial.begin(115200);
   Serial.println(F(APP_VERSION));
 
-
-  Serial.print("MyDeepSleepManager.rstReason = ");
-  Serial.print(MyDeepSleepManager.getRstReason());
   switch (MyDeepSleepManager.getRstReason()) {
     case REASON_DEFAULT_RST:  Serial.println(F("->Cold boot")); break;
     case REASON_EXT_SYS_RST:  Serial.println(F("->boot with BP Reset")); break;
@@ -135,10 +139,16 @@ void setup() {
   }
   Serial.print("MyDeepSleepManager.WiFiLocked = ");
   Serial.println(MyDeepSleepManager.WiFiLocked);
-  Serial.print("MyDeepSleepManager.bootCounter = ");
-  Serial.println(MyDeepSleepManager.bootCounter);
-  Serial.print("MyDeepSleepManager.remainingTime = ");
-  Serial.println(MyDeepSleepManager.remainingTime);
+  Serial.print("MyDeepSleepManager.getBootCounter = ");
+  Serial.println(MyDeepSleepManager.getBootCounter());
+  Serial.print("MyDeepSleepManager.getRemainingTime = ");
+  Serial.println(MyDeepSleepManager.getRemainingTime());
+  Serial.print("MyDeepSleepManager.getBootTimeStamp = ");
+
+  Serial.println(Ctime(MyDeepSleepManager.getBootTimestamp()));
+  Serial.print("MyDeepSleepManager.getPowerOnTimeStamp = ");
+  Serial.println(Ctime(MyDeepSleepManager.getPowerOnTimestamp()));
+
 
 
   // if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will to a restart to unlock wifi
@@ -148,31 +158,20 @@ void setup() {
     // !! restore WiFi will make a special reset so we never arrive here !!
   }
 
+  // Wifi is restored as it was and will connect to wifi
+  D_println(WiFi.getMode());
 
-
-  Serial.println(F( APP_VERSION ));
-
-
-
-
-  Serial.print("Wifi Mode=");
-  Serial.println(WiFi.getMode());
-
+  // This exemple supose a WiFi connection so
   if (WiFi.getMode() != WIFI_STA) {
     Serial.println(F("!!! FIRST WiFi init !!!"));
     WiFi.mode(WIFI_STA);
     WiFi.begin("mon_wifi", "ultrasecret");
-    //    Serial.print("Wifi Mode=");
-    //    Serial.println(WiFi.getMode());
   }
 
-
-
   bp0Status = digitalRead(BP0);
-  Serial.print(("BP_0 = "));
-  Serial.println(bp0Status);
+  D_println(bp0Status);
 
-  // init time
+  // init file system
   MyFS.begin();
 
   Serial.println(F("==== data.csv ====="));
@@ -184,8 +183,6 @@ void setup() {
     f.close();
   }
   Serial.println(F("==== eof datat.csv ="));
-
-
 
   Serial.println(F("Bonjour ..."));
 
@@ -211,6 +208,8 @@ void loop() {
 
     if (WiFiStatus == WL_CONNECTED) {
       Serial.println(F("WiFI Connected"));
+
+
       // connect to captive.apple.com
       //      captive.apple.com
       //      connectivitycheck.gstatic.com
@@ -228,55 +227,54 @@ void loop() {
       http.collectHeaders(headerKeys, numberOfHeaders);
 
       int httpCode = http.GET();                                  //Send the request
-      Serial.print(F("http.GET()="));
-      Serial.println(httpCode);
-      tm dateStruct;
-      //      tm_sec  int seconds after the minute  0-61*
-      //tm_min  int minutes after the hour  0-59
-      //tm_hour int hours since midnight  0-23
-      //tm_mday int day of the month  1-31
-      //tm_mon  int months since January  0-11
-      //tm_year int years since 1900
-      //tm_wday int days since Sunday 0-6
-      //tm_yday int days since January 1  0-365
-      //tm_isdst  int Daylight Saving Time flag
-
+      //Serial.print(F("http.GET()="));
+      //Serial.println(httpCode);
+      tmElements_t dateStruct;
+      //      /uint8_t Second;
+      //  uint8_t Minute;
+      //  uint8_t Hour;
+      //  uint8_t Wday;   // day of week, sunday is day 1
+      //  uint8_t Day;
+      //  uint8_t Month;
+      //  uint8_t Year;   // offset from 1970;
 
       if (httpCode > 0) { //Check the returning code
         String headerDate = http.header(headerKeys[0]);
         Serial.println(headerDate);
-        if (headerDate.endsWith(" GMT")) {
+        if (headerDate.endsWith(" GMT") & headerDate.length() == 29) {
           Serial.println(F("Analyse date serveur"));
-          int aSize = headerDate.length();
+          //int aSize = headerDate.length();
 
-          dateStruct.tm_sec = headerDate.substring(aSize - 6, aSize - 4).toInt();
-          dateStruct.tm_min = headerDate.substring(aSize - 9, aSize - 7).toInt();
-          dateStruct.tm_hour = headerDate.substring(aSize - 12, aSize - 10).toInt();
-          dateStruct.tm_year = headerDate.substring(aSize - 17, aSize - 13).toInt() - 1900;
+          dateStruct.Second  = headerDate.substring(23, 25).toInt();
+          dateStruct.Minute  = headerDate.substring(20, 22).toInt();
+          dateStruct.Hour = headerDate.substring(17, 19).toInt();
+          dateStruct.Year = headerDate.substring(12, 16).toInt() - 1970;
           const String monthName = F("JanFebMarAprJunJulAugSepOctNovDec");
-          dateStruct.tm_mon = monthName.indexOf(headerDate.substring(aSize - 21, aSize - 18)) / 3;
-          dateStruct.tm_mday = headerDate.substring(aSize - 24, aSize - 22).toInt();
+          dateStruct.Month = monthName.indexOf(headerDate.substring(8, 11)) / 3 + 1;
+          dateStruct.Day = headerDate.substring(5, 7).toInt();
 
-          Serial.print(dateStruct.tm_hour); Serial.print(":");
-          Serial.print(dateStruct.tm_min); Serial.print(":");
-          Serial.print(dateStruct.tm_sec); Serial.print(" ");
-          Serial.print(dateStruct.tm_mday); Serial.print("/");
-          Serial.print(dateStruct.tm_mon); Serial.print("/");
-          Serial.print(dateStruct.tm_year); Serial.println(" ");
-          time_t anow = mktime(&dateStruct) + 3600;
+          //          Serial.print(dateStruct.tm_hour); Serial.print(":");
+          //          Serial.print(dateStruct.tm_min); Serial.print(":");
+          //          Serial.print(dateStruct.tm_sec); Serial.print(" ");
+          //          Serial.print(dateStruct.tm_mday); Serial.print("/");
+          //          Serial.print(dateStruct.tm_mon); Serial.print("/");
+          //          Serial.print(dateStruct.tm_year); Serial.println(" ");
+          time_t serverTS = makeTime(dateStruct) + 3600;
+
           Serial.print("Server time = ");
-          Serial.print(anow);
-          Serial.print(F(" - ctime() = "));
-          Serial.println(ctime(&anow));
+          //Serial.print(anow);
+          //Serial.print(F(" - ctime() = "));
+          Serial.println(Ctime(serverTS));
           Serial.print("Local  time = ");
-          time_t bnow = now();
-          Serial.print(bnow);
-          Serial.print(F(" - ctime() = "));
-          Serial.println(ctime(&bnow));
+          time_t nowTS = now();
+          //Serial.print(bnow);
+          //Serial.print(F(" - ctime() = "));
+          Serial.println(Ctime(nowTS));
 
           Serial.print("timeStatus()=");
           Serial.println(timeStatus());
-          setTime(anow);
+          setTime(serverTS);
+          MyDeepSleepManager.setActualTimestamp(serverTS);
           Serial.print("timeStatus()=");
           Serial.println(timeStatus());
         }
@@ -290,12 +288,12 @@ void loop() {
       http.end();   //Close connection
 
 
-      Serial.print("time() = ");
-
-      time_t anow = now();
-      Serial.print(anow);
-      Serial.print(F(" - ctime() = "));
-      Serial.println(ctime(&anow));
+      Serial.print("now() = ");
+      Serial.println(Ctime(now()));
+      Serial.print("bootTime = ");
+      Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
+      Serial.print("powerTime = ");
+      Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
 
 
     }
@@ -307,27 +305,27 @@ void loop() {
       Serial.println(F("-- start DeepSleep for 24 Hours"));
       Serial.println(F("   each press on RESET will skip 1 hours"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep(24 * 60 * 60, 60 * 60); // start a deepSleepMode with 1 hours incremental
+      MyDeepSleepManager.startDeepSleep(24 * 60 * 60, 60 * 60 ); // start a deepSleepMode with 1 hours incremental
     }
 
     if (aChar == 'T') {
       Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.GMTBootTime = now();
-      MyDeepSleepManager.startDeepSleep( 60 , 10 );
+      //MyDeepSleepManager.GMTBootTime = now();
+      MyDeepSleepManager.startDeepSleep( 1 * 60, 10 );
     }
 
     if (aChar == 'U') {
       Serial.println(F("-- start DeepSleep for 5 Minutes with a 30 Seconds incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.GMTBootTime = now();
+      //MyDeepSleepManager.GMTBootTime = now();
       MyDeepSleepManager.startDeepSleep( 5 * 60 , 30 );
     }
 
     if (aChar == 'V') {
       Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.GMTBootTime = now();
+      //MyDeepSleepManager.GMTBootTime = now();
       MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
     }
 
@@ -366,12 +364,11 @@ void loop() {
       ESP.reset();
     }
     if (aChar == 'N') {
-      time_t anow = now();
       Serial.print(F(" now() = "));
-      Serial.println(ctime(&anow));
-      anow = time(nullptr);
-      Serial.print(F(" time() = "));
-      Serial.println(ctime(&anow));
+      Serial.println(Ctime(now()));
+      //      anow = time(nullptr);
+      //      Serial.print(F(" time() = "));
+      //      Serial.println(Ctime(&anow));
 
     }
 
@@ -398,3 +395,8 @@ void loop() {
   }
   delay(10);  // avoid rebounce of BP0 easy way :)
 }
+
+
+String Ctime(time_t time) {
+  return String(ctime(&time)).substring(0, 24);
+};
