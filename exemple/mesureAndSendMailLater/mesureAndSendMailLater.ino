@@ -82,7 +82,7 @@ void setup() {
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
   //setTime(MyDeepSleepManager.getBootTimestamp());  // set the local system time
 
-  if ( rstReason == REASON_DEEP_SLEEP_AWAKE  || rstReason == REASON_DEEP_SLEEP_TERMINATED ) {
+  if ( rstReason == REASON_DEEP_SLEEP_AWAKE  ) {
 
 
 
@@ -211,6 +211,13 @@ void loop() {
     //    Serial.println( Ctime(now()) );
     MyDeepSleepManager.setActualTimestamp(now());
   }
+  // 30 seconde au bout d'un deep sleep on relance
+  static uint32_t oldMillis = millis();
+  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
+
+  }
+
+
   // check for connection to local WiFi
   static int oldWiFiStatus = 999;
   int WiFiStatus = WiFi.status();
@@ -248,12 +255,33 @@ void loop() {
         break;
       }
 
-      if ( sendDataCsvTo(SEND_TO) ) {
+
+      delay(1000);
+      if ( false && sendDataCsvTo(SEND_TO) ) {
         Serial.println(F("Mail sended"));
         Serial.println(F("Erase data.csv"));
         MyFS.remove(DATA_FILENAME);
         mailSended = true;
+      } else {
+
+        File f = MyFS.open(DATA_FILENAME, "a");
+        if (!f) {
+          Serial.println("!!file open failed!!");
+        } else {
+          f.print(now());
+          f.print("\t");
+          f.print("tried an email");
+          f.print("\n");
+          f.close();
+
+        }
+
       }
+      Serial.println(F("-- start DeepSleep for 1 Minute with a 15 Second incremental"));
+      Serial.println(F("<-- GO"));
+      //MyDeepSleepManager.GMTBootTime = now();
+      D_println(millis());
+      MyDeepSleepManager.startDeepSleep( 60 * 60, 60, 10 );
     } while (false);
 
   }
@@ -268,10 +296,10 @@ void loop() {
     }
 
     if (aChar == 'T') {
-      Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
+      Serial.println(F("-- start DeepSleep for 1 Minute with a 15 Second incremental"));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
-      MyDeepSleepManager.startDeepSleep( 1 * 60, 10 );
+      MyDeepSleepManager.startDeepSleep( 1 * 60, 30, 5 );
     }
 
     if (aChar == 'U') {
@@ -285,7 +313,7 @@ void loop() {
       Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
-      MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
+      MyDeepSleepManager.startDeepSleep( 60 * 60, 60, 10 );
     }
 
 
@@ -388,7 +416,7 @@ bool connectedToInternet() {
   String headerDate = http.header(headerKeys[0]);
   // try to setup Clock
   Serial.println(headerDate);
-  if (headerDate.endsWith(" GMT") & headerDate.length() == 29) {
+  if (headerDate.endsWith(" GMT") && headerDate.length() == 29) {
     tmElements_t dateStruct;
     // we got a date
     Serial.println(F("Analyse date serveur"));
