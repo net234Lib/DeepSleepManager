@@ -46,8 +46,9 @@ class DeepSleepManager {
     bool     WiFiLocked;            // true if wifi is locked (awake from a deep sleep)
     uint16_t getBootCounter();      // Number of reboot since power on
     uint32_t getRemainingTime();    // Number of second remaining to terminate deep sleep
-    time_t   getBootTimestamp();    // Timestamp of the last boot time (incremented before deep sleep)
+    time_t   getBootTimestamp();    // Timestamp of the last boot time 
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
+    time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
     void     setActualTimestamp(time_t timestamp);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
 
   private:

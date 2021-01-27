@@ -48,7 +48,13 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 
     rstReason = REASON_DEFAULT_RST;  // most of time never seen cause a second rst cause a REASON_EXT_SYS_RST came ?
   }
-  if (rstReason == REASON_DEEP_SLEEP_AWAKE ) setTime(savedRTCmemory.actualTimestamp);
+  // little trick to leave timeStatus to timeNotSet
+  // TODO: see with https://github.com/PaulStoffregen/Time to find a way to say timeNeedsSync
+  adjustTime(savedRTCmemory.actualTimestamp);
+
+//  if (rstReason == REASON_DEEP_SLEEP_AWAKE ) {
+//    setTime(savedRTCmemory.actualTimestamp);
+//  }
   savedRTCmemory.bootCounter++;
   // check for enable Wifi
   if (savedRTCmemory.increment == -1) {
@@ -134,7 +140,7 @@ uint32_t DeepSleepManager::getRemainingTime() {    // Number of second remaining
   return savedRTCmemory.remainingTime;
 }
 
-time_t   DeepSleepManager::getBootTimestamp() {    // Timestamp of the last boot time (incremented before deep sleep)
+time_t   DeepSleepManager::getBootTimestamp() {    // Timestamp of the last boot time 
   return bootTimestamp;
 }
 
@@ -142,13 +148,18 @@ time_t   DeepSleepManager::getPowerOnTimestamp() { // Timestamp of the power on 
   return savedRTCmemory.powerOnTimestamp;
 }
 
+time_t   DeepSleepManager::getActualTimestamp() { // Timestamp saved in RTC
+  return savedRTCmemory.actualTimestamp;
+}
+
+
 void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // init the power on timestamp
   if (timestamp == 0) timestamp = now();
   if (savedRTCmemory.powerOnTimestamp == 0 ) {
-    savedRTCmemory.powerOnTimestamp = timestamp - millis()/1000;
+    savedRTCmemory.powerOnTimestamp = timestamp - millis() / 1000;
   }
   if (bootTimestamp == 0 ) {
-    bootTimestamp = timestamp - millis()/1000;
+    bootTimestamp = timestamp - millis() / 1000;
   }
   savedRTCmemory.actualTimestamp = timestamp;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));

@@ -26,7 +26,12 @@
 // Initialize the client library
 //WiFiClient client;
 
+// include PRIVATE_MAIL_ADRESSE  for test
+#include "private.h"
+
 #define APP_VERSION   "DeepSleep24Hours"
+#define MAIL_ADRESSE  PRIVATE_MAIL_ADRESSE // replace with your test adresse
+
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
@@ -158,12 +163,12 @@ void setup() {
     // !! restore WiFi will make a special reset so we never arrive here !!
   }
 
-  // Wifi is restored as it was and will connect to wifi
+  // Wifi is restored as it was and will soon connect to wifi
   D_println(WiFi.getMode());
 
-  // This exemple supose a WiFi connection so
+  // This exemple supose a WiFi connection so if we are not WIFI_STA mode we force it
   if (WiFi.getMode() != WIFI_STA) {
-    Serial.println(F("!!! FIRST WiFi init !!!"));
+    Serial.println(F("!!! Force WiFi to STA mode !!!  should be done only ONCE even if we power off "));
     WiFi.mode(WIFI_STA);
     WiFi.begin("mon_wifi", "ultrasecret");
   }
@@ -198,7 +203,17 @@ void setup() {
   bp0Status = !digitalRead(BP0);
 }
 
+bool mailSended = false;
+
+
 void loop() {
+  // Save the time when it change so we can reboot with localtime almost acurate
+  if ( MyDeepSleepManager.getActualTimestamp() != now() ) {
+    //    Serial.print(F("Save clock "));
+    //    Serial.println( Ctime(now()) );
+    MyDeepSleepManager.setActualTimestamp(now());
+  }
+  // check for connection to local WiFi
   static int oldWiFiStatus = 999;
   int WiFiStatus = WiFi.status();
   if (oldWiFiStatus != WiFiStatus) {
@@ -208,93 +223,25 @@ void loop() {
 
     if (WiFiStatus == WL_CONNECTED) {
       Serial.println(F("WiFI Connected"));
+      if (connectedToInternet()) {
+        Serial.println(F("Connected to Internet"));
 
-
-      // connect to captive.apple.com
-      //      captive.apple.com
-      //      connectivitycheck.gstatic.com
-      //      detectportal.firefox.com
-      //  https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
-#define CAPTIVE "www.msftncsi.com"
-
-      Serial.println(F("connect to " CAPTIVE ));
-
-      HTTPClient http;  //Declare an object of class HTTPClient
-
-      http.begin("http://" CAPTIVE);  //Specify request destination
-      const char * headerKeys[] = {"date"} ;
-      const size_t numberOfHeaders = 1;
-      http.collectHeaders(headerKeys, numberOfHeaders);
-
-      int httpCode = http.GET();                                  //Send the request
-      //Serial.print(F("http.GET()="));
-      //Serial.println(httpCode);
-      tmElements_t dateStruct;
-      //      /uint8_t Second;
-      //  uint8_t Minute;
-      //  uint8_t Hour;
-      //  uint8_t Wday;   // day of week, sunday is day 1
-      //  uint8_t Day;
-      //  uint8_t Month;
-      //  uint8_t Year;   // offset from 1970;
-
-      if (httpCode > 0) { //Check the returning code
-        String headerDate = http.header(headerKeys[0]);
-        Serial.println(headerDate);
-        if (headerDate.endsWith(" GMT") & headerDate.length() == 29) {
-          Serial.println(F("Analyse date serveur"));
-          //int aSize = headerDate.length();
-
-          dateStruct.Second  = headerDate.substring(23, 25).toInt();
-          dateStruct.Minute  = headerDate.substring(20, 22).toInt();
-          dateStruct.Hour = headerDate.substring(17, 19).toInt();
-          dateStruct.Year = headerDate.substring(12, 16).toInt() - 1970;
-          const String monthName = F("JanFebMarAprJunJulAugSepOctNovDec");
-          dateStruct.Month = monthName.indexOf(headerDate.substring(8, 11)) / 3 + 1;
-          dateStruct.Day = headerDate.substring(5, 7).toInt();
-
-          //          Serial.print(dateStruct.tm_hour); Serial.print(":");
-          //          Serial.print(dateStruct.tm_min); Serial.print(":");
-          //          Serial.print(dateStruct.tm_sec); Serial.print(" ");
-          //          Serial.print(dateStruct.tm_mday); Serial.print("/");
-          //          Serial.print(dateStruct.tm_mon); Serial.print("/");
-          //          Serial.print(dateStruct.tm_year); Serial.println(" ");
-          time_t serverTS = makeTime(dateStruct) + 3600;
-
-          Serial.print("Server time = ");
-          //Serial.print(anow);
-          //Serial.print(F(" - ctime() = "));
-          Serial.println(Ctime(serverTS));
-          Serial.print("Local  time = ");
-          time_t nowTS = now();
-          //Serial.print(bnow);
-          //Serial.print(F(" - ctime() = "));
-          Serial.println(Ctime(nowTS));
-
-          Serial.print("timeStatus()=");
-          Serial.println(timeStatus());
-          setTime(serverTS);
-          MyDeepSleepManager.setActualTimestamp(serverTS);
-          Serial.print("timeStatus()=");
-          Serial.println(timeStatus());
+        Serial.print("now() = ");
+        Serial.println(Ctime(now()));
+        Serial.print("bootTime = ");
+        Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
+        Serial.print("powerTime = ");
+        Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
+        if (sendDataCsvTo(MAIL_ADRESSE)) {
+          Serial.println(F("Mail sended"));
+          Serial.println(F("Erase data.csv"));
+          MyFS.remove("/data.csv");
+          mailSended = true;
         }
 
-        //Date: Mon, 25 Jan 2021 21:18:52 GMT
-        String payload = http.getString();   //Get the request response payload
-        Serial.println(payload);             //Print the response payload
+
 
       }
-
-      http.end();   //Close connection
-
-
-      Serial.print("now() = ");
-      Serial.println(Ctime(now()));
-      Serial.print("bootTime = ");
-      Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
-      Serial.print("powerTime = ");
-      Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
-
 
     }
   }
@@ -400,3 +347,85 @@ void loop() {
 String Ctime(time_t time) {
   return String(ctime(&time)).substring(0, 24);
 };
+
+
+
+// check
+bool connectedToInternet() {
+
+
+  // connect to a captive portal
+  //      captive.apple.com  timestamp around 4 second false
+  //      connectivitycheck.gstatic.com
+  //      detectportal.firefox.com
+  //      www.msftncsi.com  timestamp about 1 second
+  //  https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
+#define CAPTIVE "www.msftncsi.com"
+
+  Serial.println(F("connect to " CAPTIVE " to get time and check connectivity to www"));
+
+  HTTPClient http;  //Declare an object of class HTTPClient
+
+  http.begin("http://" CAPTIVE);  //Specify request destination
+  // we need date to setup clock
+  const char * headerKeys[] = {"date"} ;
+  const size_t numberOfHeaders = 1;
+  http.collectHeaders(headerKeys, numberOfHeaders);
+
+  int httpCode = http.GET();                                  //Send the request
+  if (httpCode < 0) {
+    Serial.print(F("cant get an answer http.GET()="));
+    Serial.println(httpCode);
+    http.end();   //Close connection
+    return (false);
+  }
+
+  // we got an answer
+  String headerDate = http.header(headerKeys[0]);
+  // try to setup Clock
+  Serial.println(headerDate);
+  if (headerDate.endsWith(" GMT") & headerDate.length() == 29) {
+    tmElements_t dateStruct;
+    // we got a date
+    Serial.println(F("Analyse date serveur"));
+    dateStruct.Second  = headerDate.substring(23, 25).toInt();
+    dateStruct.Minute  = headerDate.substring(20, 22).toInt();
+    dateStruct.Hour = headerDate.substring(17, 19).toInt();
+    dateStruct.Year = headerDate.substring(12, 16).toInt() - 1970;
+    const String monthName = F("JanFebMarAprJunJulAugSepOctNovDec");
+    dateStruct.Month = monthName.indexOf(headerDate.substring(8, 11)) / 3 + 1;
+    dateStruct.Day = headerDate.substring(5, 7).toInt();
+
+    //          Serial.print(dateStruct.tm_hour); Serial.print(":");
+    //          Serial.print(dateStruct.tm_min); Serial.print(":");
+    //          Serial.print(dateStruct.tm_sec); Serial.print(" ");
+    //          Serial.print(dateStruct.tm_mday); Serial.print("/");
+    //          Serial.print(dateStruct.tm_mon); Serial.print("/");
+    //          Serial.print(dateStruct.tm_year); Serial.println(" ");
+    time_t serverTS = makeTime(dateStruct) + 3600;
+
+    Serial.print("Server time = ");
+    Serial.println(Ctime(serverTS));
+    Serial.print("Local  time = ");
+    time_t nowTS = now();
+    Serial.println(Ctime(nowTS));
+
+    Serial.print("timeStatus()=");
+    Serial.println(timeStatus());
+    setTime(serverTS);
+    Serial.print("timeStatus()=");
+    Serial.println(timeStatus());
+  }
+
+  //Date: Mon, 25 Jan 2021 21:18:52 GMT
+  String payload = http.getString();   //Get the request response payload
+  //Serial.println(payload);             //Print the response payload
+  http.end();   //Close connection
+}
+
+
+bool sendDataCsvTo(const String sendto)  {
+  Serial.print("Send data.csv to ");
+  Serial.print(sendto);
+  return false; 
+}
