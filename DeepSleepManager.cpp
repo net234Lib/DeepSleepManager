@@ -26,11 +26,9 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   // get ESP reset reason
   rst_info* resetInfoPtr = ESP.getResetInfoPtr();
   rstReason = (resetInfoPtr->reason);
-  WiFiLocked = false;
   // adjust ESP rstReason if bp is down or cold boot
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
     if (bpStatus == LOW ) rstReason = REASON_USER_BUTTON;
-    WiFiLocked = true;
   }
 
   // adjust ESP rstReason if RTC memory not initialised
@@ -48,19 +46,16 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 
     rstReason = REASON_DEFAULT_RST;  // most of time never seen cause a second rst cause a REASON_EXT_SYS_RST came ?
   }
+  WiFiLocked = (savedRTCmemory.remainingTime > 0);
   // little trick to leave timeStatus to timeNotSet
   // TODO: see with https://github.com/PaulStoffregen/Time to find a way to say timeNeedsSync
   adjustTime(savedRTCmemory.actualTimestamp);
-
-//  if (rstReason == REASON_DEEP_SLEEP_AWAKE ) {
-//    setTime(savedRTCmemory.actualTimestamp);
-//  }
   savedRTCmemory.bootCounter++;
-  // check for enable Wifi  (tricky stuff)
+
+  // check for enable Wifi  (tricky stuff) restore previous restart event
   if (savedRTCmemory.increment < 0) {
     rstReason = -savedRTCmemory.increment;
     savedRTCmemory.increment = 0;
-    WiFiLocked = false;
   }
   bootTimestamp = savedRTCmemory.actualTimestamp;
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
@@ -83,7 +78,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 //https://github.com/esp8266/Arduino/pull/7338/commits/ae0d8ffe84944284665facf13f847887e6459cfa
 
 
-void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment ) { // start a deepSleepMode with   default increment 2 hours
+void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.remainingTime = sleepTimeSeconds;
   savedRTCmemory.actualTimestamp = now();
   uint16_t nextIncrement = increment;
@@ -92,12 +87,22 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
   if (savedRTCmemory.remainingTime <= nextIncrement) {
     nextIncrement = savedRTCmemory.remainingTime;
   }
+  if (offset > 0) {
+    nextIncrement -=offset;
+    if ( nextIncrement <=0 ) nextIncrement = 1; 
+  }
   savedRTCmemory.remainingTime -= nextIncrement;
-  savedRTCmemory.actualTimestamp += nextIncrement;
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   //Serial.print("sizeof savedRTCmemory=");
   //Serial.println(sizeof savedRTCmemory);  //20
-  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - 149300, RF_DISABLED);  //2094
+  int32_t adjust = 149300;
+  uint32_t milli = millis();
+  if (offset > 0 && nextIncrement > milli / 1000) {
+    nextIncrement -= milli / 1000;
+    adjust += (milli % 1000) * 1000;
+  }
+  savedRTCmemory.actualTimestamp += nextIncrement;
+  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
 
 
@@ -111,22 +116,15 @@ void DeepSleepManager::continueDeepSleep() {
   savedRTCmemory.actualTimestamp += nextIncrement + millis() / 1000;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
 
-  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , RF_DISABLED);  //2094
+  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
 
 
-//void DeepSleepManager::startDeepSleep(const uint16_t sleepTimeSeconds) {
-//  savedRTCmemory.lastSleepTime = sleepTimeSeconds;
-//  if (savedRTCmemory.lastSleepTime < 0) savedRTCmemory.lastSleepTime = 0;
-//  if (savedRTCmemory.lastSleepTime > 3 * 3600) savedRTCmemory.lastSleepTime = 3 * 3600;
-//  // Serial.println(F("-> PowerDown "));
-//  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
-//  ESP.deepSleep(savedRTCmemory.lastSleepTime * 1.004 * 1E6 - micros() - 149300, RF_DISABLED);  //2094
-//  while (true) delay(1);
-//}
+
 
 void DeepSleepManager::WiFiUnlock() {
   savedRTCmemory.increment = -rstReason;
+  savedRTCmemory.remainingTime = 0;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   ESP.deepSleep(50L * 1000, RF_DEFAULT);   //reset in 50 ms to clear RF_DISABLED
   while (true) delay(1);
