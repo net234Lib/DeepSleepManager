@@ -16,23 +16,27 @@
 
 */
 
-#define D_println(x) Serial.print(#x " => '"); Serial.print(x); Serial.println("'");
+#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+//Le croquis utilise 320764 octets (30 % ) de l'espace de stockage de programmes. Le maximum est de 1044464 octets.
+//Les variables globales utilisent 28860 octets (35%) de mémoire dynamique, ce qui laisse 53060 octets pour les variables locales. Le maximum est de 81920 octets.
 
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-// Initialize the client library
-//WiFiClient client;
-
 // include PRIVATE_MAIL_ADRESSE  for test
 #include "private.h"
 
 #define APP_VERSION   "DeepSleep24Hours"
+#define WIFI_SSID     PRIVATE_WIFI_SSID
+#define WIFI_PASSWORD PRIVATE_WIFI_PASSWORD
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
 #define SMTP_SERVER   "smtp.free.fr"       // replace with your FAI smtp server
 #define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
+#define DATA_FILENAME "/data.csv"
+
+
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
@@ -97,11 +101,9 @@ void setup() {
     time_t localTime = now();
     D_println(Ctime(localTime));
 
-
-
     // Init FS system and save Value and localTime on  local File:data.csv
     MyFS.begin();
-    File f = MyFS.open("/data.csv", "a");
+    File f = MyFS.open(DATA_FILENAME, "a");
     if (!f) {
       Serial.println("!!file open failed!!");
     } else {
@@ -112,7 +114,7 @@ void setup() {
       f.print(dht11Values.temperature, 1);
       f.print("\t");
       f.print(MyDHT11.getStatusString());
-      f.println();
+      f.print("\n");
       D_println(f.size());
       f.close();
 
@@ -171,7 +173,7 @@ void setup() {
   if (WiFi.getMode() != WIFI_STA) {
     Serial.println(F("!!! Force WiFi to STA mode !!!  should be done only ONCE even if we power off "));
     WiFi.mode(WIFI_STA);
-    WiFi.begin("mon_wifi", "ultrasecret");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
 
   bp0Status = digitalRead(BP0);
@@ -180,14 +182,9 @@ void setup() {
   // init file system
   MyFS.begin();
 
+
   Serial.println(F("==== data.csv ====="));
-  File f = MyFS.open("/data.csv", "r");
-  if (f) {
-    while (f.available()) {
-      Serial.write(f.read());
-    }
-    f.close();
-  }
+  printDataCSV();
   Serial.println(F("==== eof datat.csv ="));
 
   Serial.println(F("Bonjour ..."));
@@ -222,29 +219,43 @@ void loop() {
     Serial.print(F("WiFI = "));
     Serial.println(WiFiStatus);
 
-    if (WiFiStatus == WL_CONNECTED) {
+    // on connection to WiFI we try to setup clock and send mail
+    do {
+      if (WiFiStatus != WL_CONNECTED)  break;
+
       Serial.println(F("WiFI Connected"));
-      if (connectedToInternet()) {
-        Serial.println(F("Connected to Internet"));
-
-        Serial.print("now() = ");
-        Serial.println(Ctime(now()));
-        Serial.print("bootTime = ");
-        Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
-        Serial.print("powerTime = ");
-        Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
-        if ( sendDataCsvTo(SEND_TO) ) {
-          Serial.println(F("Mail sended"));
-          Serial.println(F("Erase data.csv"));
-          MyFS.remove("/data.csv");
-          mailSended = true;
-        }
+      if (!connectedToInternet()) {
+        Serial.println(F("Pas de liaison internet Internet"));
+        break;
+      }
+      // dsisplay RTC status
+      Serial.print("now() = ");
+      Serial.println(Ctime(now()));
+      Serial.print("bootTime = ");
+      Serial.println( Ctime(MyDeepSleepManager.getBootTimestamp()) );
+      Serial.print("powerTime = ");
+      Serial.println( Ctime(MyDeepSleepManager.getPowerOnTimestamp()) );
 
 
-
+      // do we restart from a end of deep sleep ?
+      if ( MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED) {
+        Serial.println(F("No job to when restart is not Deep Sleep Terminated"));
+        break;
+      }
+      // some data to send
+      if (!MyFS.exists(DATA_FILENAME)) {
+        Serial.println(F("No data to send"));
+        break;
       }
 
-    }
+      if ( sendDataCsvTo(SEND_TO) ) {
+        Serial.println(F("Mail sended"));
+        Serial.println(F("Erase data.csv"));
+        MyFS.remove(DATA_FILENAME);
+        mailSended = true;
+      }
+    } while (false);
+
   }
 
   if (Serial.available()) {
@@ -280,18 +291,12 @@ void loop() {
 
     if (aChar == 'E') {
       Serial.println(F("-- Erase data.csv"));
-      MyFS.remove("/data.csv");
+      MyFS.remove(DATA_FILENAME);
     }
 
     if (aChar == 'P') {
       Serial.println(F("==== data.csv ====="));
-      File f = MyFS.open("/data.csv", "r");
-      if (f) {
-        while (f.available()) {
-          Serial.write(f.read());
-        }
-        f.close();
-      }
+      printDataCSV();
       Serial.println(F("==Eof data.csv =="));
 
     }
@@ -351,10 +356,8 @@ String Ctime(time_t time) {
 
 
 
-// check
+// check connectivity to internet via a captive portal and try to update the clock
 bool connectedToInternet() {
-
-
   // connect to a captive portal
   //      captive.apple.com  timestamp around 4 second false
   //      connectivitycheck.gstatic.com
@@ -491,13 +494,30 @@ bool sendDataCsvTo(const String sendto)  {
 
     Serial.println( "Mail itself" );
     tcp.print("Subject: test mail from arduino\r\n");
-    tcp.print("ceci est un mail de test\r\n");
-    tcp.print("destine a valider la connection\r\n");
-    tcp.print("au serveur SMTP\r\n");
-    tcp.print("\r\n");
+    //    tcp.print("ceci est un mail de test\r\n");
+    //    tcp.print("destine a valider la connection\r\n");
+    //    tcp.print("au serveur SMTP\r\n");
+    //    tcp.print("\r\n");
+    tcp.println(F("===== data.csv =="));
+    File f = MyFS.open(DATA_FILENAME, "r");
+    if (f) {
+      while (f.available()) {
+        time_t aTime = f.readStringUntil('\t').toInt();
+        String aLine = f.readStringUntil('\n');
+        tcp.print(Ctime(aTime));
+        tcp.print('\t');
+        tcp.println(aLine);
+      }
+      f.close();
+    }
+
+    tcp.println(F("==Eof data.csv =="));
+
+
     tcp.print("\r\n.\r\n");
     aLine = tcp.readStringUntil('\n');
     D_println(aLine);
+
     if (!aLine.startsWith("250 "))  break;  //  not goog answer
 
     mailOk = true;
@@ -505,14 +525,27 @@ bool sendDataCsvTo(const String sendto)  {
   } while (false);
   D_println(mailOk);
 
-  String answer, line;
-  do {
-    line = tcp.readStringUntil('\r');
-    answer += line;
-    D_println(line);
-  } while (line != "");
-  D_println(answer);
+  Serial.println( "quit" );
+  tcp.print("QUIT\r\n");
+  aLine = tcp.readStringUntil('\n');
+  D_println(aLine);
+
   Serial.println( "Stop TCP connection" );
   tcp.stop();
-  return false;
+  return mailOk;
+}
+
+
+void printDataCSV() {
+  File f = MyFS.open(DATA_FILENAME, "r");
+  if (f) {
+    while (f.available()) {
+      time_t aTime = f.readStringUntil('\t').toInt();
+      String aLine = f.readStringUntil('\n');
+      Serial.print(Ctime(aTime));
+      Serial.print('\t');
+      Serial.println(aLine);
+    }
+    f.close();
+  }
 }

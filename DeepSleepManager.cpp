@@ -56,9 +56,9 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 //    setTime(savedRTCmemory.actualTimestamp);
 //  }
   savedRTCmemory.bootCounter++;
-  // check for enable Wifi
-  if (savedRTCmemory.increment == -1) {
-    rstReason = REASON_RESTORE_WIFI;
+  // check for enable Wifi  (tricky stuff)
+  if (savedRTCmemory.increment < 0) {
+    rstReason = -savedRTCmemory.increment;
     savedRTCmemory.increment = 0;
     WiFiLocked = false;
   }
@@ -67,7 +67,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 
   //  remainingTime = savedRTCmemory.remainingTime;
   //  bootCounter = savedRTCmemory.bootCounter;
-  if (rstReason == REASON_RESTORE_WIFI) savedRTCmemory.increment = 0;
+  //if (rstReason == REASON_RESTORE_WIFI) savedRTCmemory.increment = 0;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   //system_rtc_mem_write(10, &savedRTCmemory, sizeof(savedRTCmemory));
   return (rstReason);
@@ -126,9 +126,9 @@ void DeepSleepManager::continueDeepSleep() {
 //}
 
 void DeepSleepManager::WiFiUnlock() {
-  savedRTCmemory.increment = -1;
+  savedRTCmemory.increment = -rstReason;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
-  ESP.deepSleep(100L * 1000, RF_DEFAULT);   //reset in 100 ms to clear RF_DISABLED
+  ESP.deepSleep(50L * 1000, RF_DEFAULT);   //reset in 50 ms to clear RF_DISABLED
   while (true) delay(1);
 }
 
