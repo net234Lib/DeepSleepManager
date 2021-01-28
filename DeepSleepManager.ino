@@ -1,12 +1,28 @@
-/*************************
-   Test DeepSleepManger
-   net234 04/01/2021
+/*************************************************
+ *************************************************
+    DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
+    Copyright 2020  NET234
 
-   0001 simple test ESP.deepSleep(time_in_us)
-    Memory dont survive a deep sleep (including section (".noinit") )
-    after a deepsleep external system reset (REASON_EXT_SYS_RST) reset are seen as REASON_DEEP_SLEEP_AWAKE it logical but not obvious
+This file is part of DeepSleepManager.
 
-*/
+    DeepSleepManager is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    DeepSleepManager is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
+
+  
+
+   TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
+
+**********************************************************************************/
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -14,7 +30,7 @@
 #define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 
 
-#define APP_VERSION   "TestDeepSleepManager"
+#define APP_VERSION   "DeepSleepManager DEV"
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE

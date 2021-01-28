@@ -3,10 +3,22 @@
     DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
     Copyright 2020  NET234
 
-    B01  11/01/2021
-    from testpowerdown (.h only)
-    B02  23/01/2021
-    set up longDeepSleep
+This file is part of DeepSleepManager.
+
+    DeepSleepManager is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    DeepSleepManager is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
+
+  
 
    TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
 
@@ -30,9 +42,9 @@
 
 // Specific restart reason
 #define REASON_USER_BUTTON  10
-#define REASON_RESTORE_WIFI 11
-#define REASON_DEEP_SLEEP_TERMINATED 12
-#define REASON_NOT_INITED   13
+//#define REASON_RESTORE_WIFI 11
+#define REASON_DEEP_SLEEP_TERMINATED 11
+#define REASON_NOT_INITED   19
 
 
 
@@ -49,7 +61,7 @@ class DeepSleepManager {
     time_t   getBootTimestamp();    // Timestamp of the last boot time 
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
     time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
-    void     setActualTimestamp(time_t timestamp);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
+    void     setActualTimestamp(time_t timestamp = 0);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
 
   private:
     uint8_t  rstReason = REASON_NOT_INITED;    // reason of restart adjusted from ESP.getResetInfoPtr();

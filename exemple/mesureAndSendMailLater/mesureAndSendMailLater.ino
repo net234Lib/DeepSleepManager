@@ -138,7 +138,7 @@ void setup() {
 
     // go deep sleep reset in next increment
     MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
-    
+
   }
   // we are here because longDeepSleep is fully elapsed or user pressed BP0
 
@@ -154,7 +154,7 @@ void setup() {
     case REASON_DEEP_SLEEP_AWAKE:  Serial.println(F("->boot from a deep sleep pending")); break;
     case REASON_DEEP_SLEEP_TERMINATED: Serial.println(F("->boot from a deep sleep terminated")); break;
     case REASON_USER_BUTTON: Serial.println(F("->boot from a deep sleep aborted with BP User")); break;
-    case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
+    //   case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
     case REASON_SOFT_RESTART: Serial.println(F("->boot after a soft Reset")); break;
     default:
       Serial.print(F("->boot reason = "));
@@ -223,15 +223,15 @@ bool mailSended = false;
 void loop() {
   // Save the time when it change so we can reboot with localtime almost acurate
   if ( MyDeepSleepManager.getActualTimestamp() != now() ) {
-    //    Serial.print(F("Save clock "));
-    //    Serial.println( Ctime(now()) );
-    MyDeepSleepManager.setActualTimestamp(now());
+    //        Serial.print(F("Save clock "));
+    //        Serial.println( Ctime(now()) );
+    MyDeepSleepManager.setActualTimestamp();
   }
-//  // 30 seconde au bout d'un deep sleep on relance
-//  static uint32_t oldMillis = millis();
-//  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
-//
-//  }
+  //  // 30 seconde au bout d'un deep sleep on relance
+  //  static uint32_t oldMillis = millis();
+  //  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
+  //
+  //  }
 
 
   // check for connection to local WiFi
@@ -247,8 +247,8 @@ void loop() {
       if (WiFiStatus != WL_CONNECTED)  break;
 
       Serial.println(F("WiFI Connected"));
-      if (false && !connectedToInternet()) {
-        Serial.println(F("Pas de liaison internet Internet"));
+      if (!connectedToInternet()) {
+        Serial.println(F("No Internet connection"));
         break;
       }
       // dsisplay RTC status
@@ -286,7 +286,7 @@ void loop() {
         } else {
           f.print(now());
           f.print("\t");
-          f.print("tried an email");
+          f.print("ERR 001, tried an email");
           f.print("\n");
           f.close();
 
@@ -297,7 +297,8 @@ void loop() {
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
       D_println(millis());
-      MyDeepSleepManager.startDeepSleep( 60 * 60, 60, 10 );
+      //MyDeepSleepManager.startDeepSleep( 60 * 60, 60, 10 );
+      MyDeepSleepManager.startDeepSleep( 60, 10, 2 );
     } while (false);
 
   }
@@ -315,7 +316,7 @@ void loop() {
       Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
-      MyDeepSleepManager.startDeepSleep( 1 * 60, 10 );
+      MyDeepSleepManager.startDeepSleep( 1 * 60, 10, 2 );
     }
 
     if (aChar == 'U') {
@@ -453,12 +454,14 @@ bool connectedToInternet() {
     Serial.print("Local  time = ");
     time_t nowTS = now();
     Serial.println(Ctime(nowTS));
-
-    Serial.print("timeStatus()=");
-    Serial.println(timeStatus());
-    setTime(serverTS);
-    Serial.print("timeStatus()=");
-    Serial.println(timeStatus());
+    int32_t delta = nowTS - serverTS;
+    D_println(delta);
+    if (abs(delta) > 1) {
+      D_println(timeStatus());
+      setTime(serverTS);
+      MyDeepSleepManager.setActualTimestamp();
+      D_println(timeStatus());
+    }
   }
 
   //Date: Mon, 25 Jan 2021 21:18:52 GMT

@@ -1,3 +1,31 @@
+/*************************************************
+ *************************************************
+    DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
+    Copyright 2020  NET234
+
+This file is part of DeepSleepManager.
+
+    DeepSleepManager is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    DeepSleepManager is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
+
+  
+
+   TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
+
+**********************************************************************************/
+
+
+
 #include "DeepSleepManager.h"
 #include <ESP8266WiFi.h>
 
@@ -44,7 +72,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.actualTimestamp = 0;
     savedRTCmemory.powerOnTimestamp = 0;
 
-    rstReason = REASON_DEFAULT_RST;  // most of time never seen cause a second rst cause a REASON_EXT_SYS_RST came ?
+    rstReason = REASON_DEFAULT_RST;  // this append only after a full power down
   }
   WiFiLocked = (savedRTCmemory.remainingTime > 0);
   // little trick to leave timeStatus to timeNotSet
@@ -52,7 +80,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   adjustTime(savedRTCmemory.actualTimestamp);
   savedRTCmemory.bootCounter++;
 
-  // check for enable Wifi  (tricky stuff) restore previous restart event
+  // check for enable Wifi  (tricky stuff) restore previous restart event to hide WiFi restart 
   if (savedRTCmemory.increment < 0) {
     rstReason = -savedRTCmemory.increment;
     savedRTCmemory.increment = 0;
@@ -60,9 +88,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   bootTimestamp = savedRTCmemory.actualTimestamp;
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
 
-  //  remainingTime = savedRTCmemory.remainingTime;
-  //  bootCounter = savedRTCmemory.bootCounter;
-  //if (rstReason == REASON_RESTORE_WIFI) savedRTCmemory.increment = 0;
+ 
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   //system_rtc_mem_write(10, &savedRTCmemory, sizeof(savedRTCmemory));
   return (rstReason);
@@ -100,7 +126,7 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
     nextIncrement -= milli / 1000;
     adjust += (milli % 1000) * 1000;
   }
-  savedRTCmemory.actualTimestamp += nextIncrement;
+  savedRTCmemory.actualTimestamp = now() + nextIncrement;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
@@ -113,7 +139,7 @@ void DeepSleepManager::continueDeepSleep() {
     nextIncrement = savedRTCmemory.remainingTime;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
-  savedRTCmemory.actualTimestamp += nextIncrement + millis() / 1000;
+  savedRTCmemory.actualTimestamp = now() + nextIncrement;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
 
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
@@ -151,13 +177,14 @@ time_t   DeepSleepManager::getActualTimestamp() { // Timestamp saved in RTC
 }
 
 
-void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // init the power on timestamp
+void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save timestamp in RTC
   if (timestamp == 0) timestamp = now();
-  if (savedRTCmemory.powerOnTimestamp == 0 ) {
-    savedRTCmemory.powerOnTimestamp = timestamp - millis() / 1000;
-  }
   if (bootTimestamp == 0 ) {
     bootTimestamp = timestamp - millis() / 1000;
+  }
+  if (savedRTCmemory.powerOnTimestamp == 0 && year(timestamp)>=2000) {
+    savedRTCmemory.powerOnTimestamp = timestamp - savedRTCmemory.actualTimestamp;
+    bootTimestamp -= timestamp - savedRTCmemory.actualTimestamp;
   }
   savedRTCmemory.actualTimestamp = timestamp;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
