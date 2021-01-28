@@ -1,25 +1,39 @@
-
-
 /*************************
    mesureAndSendMailLater DeepSleepManger Exemple
    net234 25/01/2021
 
-   Wake up on regular interval to get some a standard DHT11 temperature and humidity
+   Wake up on regular interval to read a standard DHT11 temperature and humidity
    Store data on a local file
    Then send a mail with the result
 
    // This exemple need :
-  // A connection between D0 and RST with a 1K resistor or a diode see documentation
-  // A DHT11 (the temp/humidity sensor of your Arduino Kit) connected to D6
-  // Eventualy a user button to abort a very long deep sleep (here BP0) connected to D7
+  // A connection between D0 (GPIO16) and RST with a 1K resistor or a diode see documentation
+  // A DHT11 (the temp/humidity sensor of your Arduino Kit) connected to D6 (GPIO12)
+  // Eventualy a user button to abort a very long deep sleep (here BP0) connected to D7 (GPIO13)
 
+  mesures : ESP8266-E12 3v3 Alone
+  Wifi connected modem  =  15ma / 23ma / 60ma / 170ma
+  Deep sleep            =0,02ma / 12ma /
 
+  mesures : nodeMcu dev board ESP8266-E12 3v3
+  Wifi connected modem  =  24ma / 28ma / 77ma / 190ma
+  Deep sleep            = 9,3ma / 22ma /
+
+  mesures : nodeMcu dev board ESP8266-E12 5V usb or 5V Vin
+  Wifi connected modem  =  25ma / 29ma / 80ma / 190ma
+  Deep sleep            =10,2ma / 22ma /
 */
 
+// trick to trace variables
 #define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+//define D_println(x) while (false) {};
+
 //Le croquis utilise 320764 octets (30 % ) de l'espace de stockage de programmes. Le maximum est de 1044464 octets.
 //Les variables globales utilisent 28860 octets (35%) de mémoire dynamique, ce qui laisse 53060 octets pour les variables locales. Le maximum est de 81920 octets.
 
+//Le croquis utilise 321212 octets (30%) de l'espace de stockage de programmes. Le maximum est de 1044464 octets.
+//Les variables globales utilisent 28896 octets (35%) de mémoire dynamique, ce qui laisse 53024 octets pour les variables locales. Le maximum est de 81920 octets.
+//
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
@@ -28,11 +42,12 @@
 // include PRIVATE_MAIL_ADRESSE  for test
 #include "private.h"
 
-#define APP_VERSION   "DeepSleep24Hours"
+#define APP_VERSION   "mesureAndSendMailLater B01"
 #define WIFI_SSID     PRIVATE_WIFI_SSID
 #define WIFI_PASSWORD PRIVATE_WIFI_PASSWORD
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
-#define SMTP_SERVER   "smtp.free.fr"       // replace with your FAI smtp server
+#define HTTP_SERVER   "www.free.fr"        // replace with your FAI http server
+#define SMTP_SERVER   "smtp.free.fr"       // replace with your FAI smtp server 
 #define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
 #define DATA_FILENAME "/data.csv"
 
@@ -80,15 +95,15 @@ void setup() {
   pinMode( BP0, INPUT_PULLUP);
 
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
-  //setTime(MyDeepSleepManager.getBootTimestamp());  // set the local system time
+  Serial.begin(115200);
+  Serial.print(F("\n" APP_VERSION " - "));
+
 
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE  ) {
 
 
 
     // here we start serial to show that we are awake
-    Serial.begin(115200);
-    Serial.print(F("\n" APP_VERSION " - "));
     D_println(MyDeepSleepManager.getBootCounter());
     D_println(MyDeepSleepManager.getRemainingTime());
 
@@ -109,11 +124,11 @@ void setup() {
     } else {
       f.print(localTime);
       f.print("\t");
+      f.print(MyDHT11.getStatusString());
+      f.print("\t");
       f.print(dht11Values.humidity, 1);
       f.print("\t");
       f.print(dht11Values.temperature, 1);
-      f.print("\t");
-      f.print(MyDHT11.getStatusString());
       f.print("\n");
       D_println(f.size());
       f.close();
@@ -121,17 +136,17 @@ void setup() {
     }
     MyFS.end();
 
-    if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
-      MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
-    }
+    // go deep sleep reset in next increment
+    MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
+    
   }
   // we are here because longDeepSleep is fully elapsed or user pressed BP0
 
 
   digitalWrite(LED1, LED1_ON);
 
-  Serial.begin(115200);
-  Serial.println(F(APP_VERSION));
+  //  Serial.begin(115200);
+  //  Serial.println(F(APP_VERSION));
 
   switch (MyDeepSleepManager.getRstReason()) {
     case REASON_DEFAULT_RST:  Serial.println(F("->Cold boot")); break;
@@ -186,6 +201,7 @@ void setup() {
   Serial.println(F("==== data.csv ====="));
   printDataCSV();
   Serial.println(F("==== eof datat.csv ="));
+  Serial.println(F(APP_VERSION));
 
   Serial.println(F("Bonjour ..."));
 
@@ -211,11 +227,11 @@ void loop() {
     //    Serial.println( Ctime(now()) );
     MyDeepSleepManager.setActualTimestamp(now());
   }
-  // 30 seconde au bout d'un deep sleep on relance
-  static uint32_t oldMillis = millis();
-  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
-
-  }
+//  // 30 seconde au bout d'un deep sleep on relance
+//  static uint32_t oldMillis = millis();
+//  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
+//
+//  }
 
 
   // check for connection to local WiFi
@@ -231,7 +247,7 @@ void loop() {
       if (WiFiStatus != WL_CONNECTED)  break;
 
       Serial.println(F("WiFI Connected"));
-      if (!connectedToInternet()) {
+      if (false && !connectedToInternet()) {
         Serial.println(F("Pas de liaison internet Internet"));
         break;
       }
@@ -256,7 +272,7 @@ void loop() {
       }
 
 
-      delay(1000);
+
       if ( sendDataCsvTo(SEND_TO) ) {
         Serial.println(F("Mail sended"));
         Serial.println(F("Erase data.csv"));
@@ -296,10 +312,10 @@ void loop() {
     }
 
     if (aChar == 'T') {
-      Serial.println(F("-- start DeepSleep for 1 Minute with a 15 Second incremental"));
+      Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
-      MyDeepSleepManager.startDeepSleep( 1 * 60, 30, 5 );
+      MyDeepSleepManager.startDeepSleep( 1 * 60, 10 );
     }
 
     if (aChar == 'U') {
@@ -371,16 +387,12 @@ void loop() {
   // if you want to start deep sleep without terminale connected
   // start a deepsleep 15 sec with a long press BP0
   if (bp0Status == BP0_DOWN && millis() - lastDown  > 3000 ) {
-    Serial.println(F("DeepSleep 15 sec"));
-    MyDeepSleepManager.startDeepSleep(15);
+    Serial.println(F("DeepSleep 1 min inc 10 sec"));
+    MyDeepSleepManager.startDeepSleep( 1 * 60, 10 );
   }
   delay(10);  // avoid rebounce of BP0 easy way :)
 }
 
-
-String Ctime(time_t time) {
-  return String(ctime(&time)).substring(0, 24);
-};
 
 
 
@@ -392,7 +404,8 @@ bool connectedToInternet() {
   //      detectportal.firefox.com
   //      www.msftncsi.com  timestamp about 1 second
   //  https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
-#define CAPTIVE "www.msftncsi.com"
+  // in fact any know hhtp web server redirect on https  so use your FAI web url
+#define CAPTIVE HTTP_SERVER
 
   Serial.println(F("connect to " CAPTIVE " to get time and check connectivity to www"));
 
@@ -415,11 +428,10 @@ bool connectedToInternet() {
   // we got an answer
   String headerDate = http.header(headerKeys[0]);
   // try to setup Clock
-  Serial.println(headerDate);
+  D_println(headerDate);
   if (headerDate.endsWith(" GMT") && headerDate.length() == 29) {
     tmElements_t dateStruct;
     // we got a date
-    Serial.println(F("Analyse date serveur"));
     dateStruct.Second  = headerDate.substring(23, 25).toInt();
     dateStruct.Minute  = headerDate.substring(20, 22).toInt();
     dateStruct.Hour = headerDate.substring(17, 19).toInt();
@@ -493,35 +505,32 @@ bool sendDataCsvTo(const String sendto)  {
   do {
     Serial.println("connected with " SMTP_SERVER ":25" );
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
-    if (!aLine.startsWith("220 "))  break;  //  not goog answer
-
+    if (!aLine.startsWith("220 "))  break;  //  not good answer
     Serial.println( "HELO arduino" );
+
     tcp.print("HELO arduino \r\n");
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
     if (!aLine.startsWith("250 "))  break;  //  not goog answer
 
     Serial.println( "MAIL FROM: " SEND_FROM );
     tcp.print("MAIL FROM: " SEND_FROM "\r\n");
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
     if (!aLine.startsWith("250 "))  break;  //  not goog answer
 
     Serial.println( "RCPT TO: " + sendto );
     tcp.print("RCPT TO: " + sendto + "\r\n");
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
     if (!aLine.startsWith("250 "))  break;  //  not goog answer
 
     Serial.println( "DATA" );
     tcp.print("DATA\r\n");
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
     if (!aLine.startsWith("354 "))  break;  //  not goog answer
 
     Serial.println( "Mail itself" );
-    tcp.print("Subject: test mail from arduino\r\n");
+    tcp.print("Subject: test mail from " APP_VERSION "\r\n");
+    tcp.print("\r\n");  // end of header
+    // body
     //    tcp.print("ceci est un mail de test\r\n");
     //    tcp.print("destine a valider la connection\r\n");
     //    tcp.print("au serveur SMTP\r\n");
@@ -530,9 +539,11 @@ bool sendDataCsvTo(const String sendto)  {
     File f = MyFS.open(DATA_FILENAME, "r");
     if (f) {
       while (f.available()) {
-        time_t aTime = f.readStringUntil('\t').toInt();
+        String aTime = f.readStringUntil('\t');
         String aLine = f.readStringUntil('\n');
-        tcp.print(Ctime(aTime));
+        tcp.print(Ctime(aTime.toInt()));
+        tcp.print('\t');
+        tcp.print(aTime);
         tcp.print('\t');
         tcp.print(aLine);
         tcp.print("\r\n");
@@ -542,18 +553,16 @@ bool sendDataCsvTo(const String sendto)  {
 
     tcp.print(F("==Eof data.csv ==\r\n"));
 
-
+    // end of body
     tcp.print("\r\n.\r\n");
     aLine = tcp.readStringUntil('\n');
-    D_println(aLine);
-
     if (!aLine.startsWith("250 "))  break;  //  not goog answer
 
     mailOk = true;
     break;
   } while (false);
   D_println(mailOk);
-
+  D_println(aLine);
   Serial.println( "quit" );
   tcp.print("QUIT\r\n");
   aLine = tcp.readStringUntil('\n');
@@ -577,4 +586,33 @@ void printDataCSV() {
     }
     f.close();
   }
+}
+
+
+String str2digits(const uint8_t digits) {
+  String txt;
+  if (digits < 10)  txt = '0';
+  txt += digits;
+  return txt;
+}
+
+//String Ctime(time_t time) {
+//  return String(ctime(&time)).substring(0, 24);
+//};
+
+
+String Ctime(time_t time) {
+  String txt;
+  txt = str2digits(hour(time));
+  txt += ':';
+  txt += str2digits(minute(time));
+  txt += ':';
+  txt += str2digits(second(time));
+  txt += ' ';
+  txt += str2digits(day(time));
+  txt += '/';
+  txt += str2digits(month(time));
+  txt += '/';
+  txt += year(time);
+  return txt;
 }
