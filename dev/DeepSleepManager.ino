@@ -11,6 +11,8 @@
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 
+#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+
 
 #define APP_VERSION   "TestDeepSleepManager"
 
@@ -69,12 +71,9 @@ void setup() {
   if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
     Serial.begin(115200);
     Serial.println(F("\r" APP_VERSION));
-//    bp0Status = digitalRead(BP0);
-//    Serial.print(("BP_0 = "));
-//    Serial.println(bp0Status);
-//    bpD0Status = digitalRead(D0);
-//    Serial.print(("BP_D0 = "));
-//    Serial.println(bpD0Status);
+
+
+
 //
 //    Serial.print("MyDeepSleepManager.rstReason = ");
 //    Serial.println(MyDeepSleepManager.getRstReason());
@@ -118,9 +117,9 @@ void setup() {
   Serial.print("MyDeepSleepManager.WiFiLocked = ");
   Serial.println(MyDeepSleepManager.WiFiLocked);
   Serial.print("MyDeepSleepManager.bootCounter = ");
-  Serial.println(MyDeepSleepManager.bootCounter);
+  Serial.println(MyDeepSleepManager.getBootCounter());
   Serial.print("MyDeepSleepManager.remainingTime = ");
-  Serial.println(MyDeepSleepManager.remainingTime);
+  Serial.println(MyDeepSleepManager.getRemainingTime());
 
 
 
@@ -154,7 +153,7 @@ void setup() {
   Serial.println(F("Bonjour ..."));
 
   Serial.print(F("compteur = "));
-  Serial.println(MyDeepSleepManager.bootCounter);
+  Serial.println(MyDeepSleepManager.getBootCounter());
   Serial.println(F("Type S for DeepSleep"));
   //  Serial.print(F("RTC Time="));
   //  Serial.println(system_get_rtc_time());
