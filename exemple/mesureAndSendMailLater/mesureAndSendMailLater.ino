@@ -257,7 +257,7 @@ void loop() {
 
 
       delay(1000);
-      if ( false && sendDataCsvTo(SEND_TO) ) {
+      if ( sendDataCsvTo(SEND_TO) ) {
         Serial.println(F("Mail sended"));
         Serial.println(F("Erase data.csv"));
         MyFS.remove(DATA_FILENAME);
@@ -277,7 +277,7 @@ void loop() {
         }
 
       }
-      Serial.println(F("-- start DeepSleep for 1 Minute with a 15 Second incremental"));
+      Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.GMTBootTime = now();
       D_println(millis());
@@ -526,7 +526,7 @@ bool sendDataCsvTo(const String sendto)  {
     //    tcp.print("destine a valider la connection\r\n");
     //    tcp.print("au serveur SMTP\r\n");
     //    tcp.print("\r\n");
-    tcp.println(F("===== data.csv =="));
+    tcp.print(F("===== data.csv ==\r\n"));
     File f = MyFS.open(DATA_FILENAME, "r");
     if (f) {
       while (f.available()) {
@@ -534,12 +534,13 @@ bool sendDataCsvTo(const String sendto)  {
         String aLine = f.readStringUntil('\n');
         tcp.print(Ctime(aTime));
         tcp.print('\t');
-        tcp.println(aLine);
+        tcp.print(aLine);
+        tcp.print("\r\n");
       }
       f.close();
     }
 
-    tcp.println(F("==Eof data.csv =="));
+    tcp.print(F("==Eof data.csv ==\r\n"));
 
 
     tcp.print("\r\n.\r\n");
