@@ -39,7 +39,6 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
-// include PRIVATE_MAIL_ADRESSE  for test
 #include "private.h"
 
 #define APP_VERSION   "mesureAndSendMailLater B01  node00"
@@ -56,7 +55,6 @@ ADC_MODE(ADC_VCC);
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
-//LED_2 D0(GPIO16)
 #define LED1        LED_BUILTIN
 #define LED1_ON LOW
 #define LED1_OFF (!LED1_ON)
@@ -64,11 +62,8 @@ ADC_MODE(ADC_VCC);
 
 // User button to unlock the deep Sleep (with press reset while BP0 down)
 //BP0 (MOSI)   D7   GPIO13 is Used as BP0 status (pullup)
-
 #define BP0 D7
 #define BP0_DOWN LOW
-
-
 
 // instance for  the DeepSleepManager
 #include <DeepSleepManager.h>
@@ -86,10 +81,9 @@ DHTesp MyDHT11;
 //#define MyFS SPIFFS
 
 // status of push button connected on D7
-bool bp0Status;
-float  Vcc;
-
-#define getVcc() ( float(ESP.getVcc())/1024 )
+bool bp0Status;  // BP0 status
+float  Vcc;      // last mesured Vcc
+#define getVcc() ( float(ESP.getVcc())/1024 )  // to get Vcc in Volt
 
 void setup() {
   // Setup BP0
