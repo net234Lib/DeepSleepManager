@@ -15,7 +15,6 @@
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
-//LED_2 D0(GPIO16)
 #define LED1        LED_BUILTIN
 #define LED1_ON LOW
 #define LED1_OFF (!LED1_ON)

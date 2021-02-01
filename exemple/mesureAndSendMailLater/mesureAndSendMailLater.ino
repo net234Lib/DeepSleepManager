@@ -5,6 +5,9 @@
    Wake up on regular interval to read a standard DHT11 temperature and humidity
    Store data on a local file
    Then send a mail with the result
+   B02
+     add AUTH for mail
+     
 
    // This exemple need :
   // A connection between D0 (GPIO16) and RST with a 1K resistor or a diode see documentation
@@ -22,31 +25,34 @@
   mesures : nodeMcu dev board ESP8266-E12 5V usb or 5V Vin
   Wifi connected modem  =  25ma / 29ma / 80ma / 190ma
   Deep sleep            =10,2ma / 22ma /
+
+  TODO: log if mail sended
+
 */
 
 // trick to trace variables
 #define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 //define D_println(x) while (false) {};
 
-//Le croquis utilise 320764 octets (30 % ) de l'espace de stockage de programmes. Le maximum est de 1044464 octets.
-//Les variables globales utilisent 28860 octets (35%) de mémoire dynamique, ce qui laisse 53060 octets pour les variables locales. Le maximum est de 81920 octets.
+
 
 //Le croquis utilise 321212 octets (30%) de l'espace de stockage de programmes. Le maximum est de 1044464 octets.
 //Les variables globales utilisent 28896 octets (35%) de mémoire dynamique, ce qui laisse 53024 octets pour les variables locales. Le maximum est de 81920 octets.
 //
 
 #include <Arduino.h>
+#include <base64.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
 
 #include "private.h"
 
-#define APP_VERSION   "mesureAndSendMailLater B01  node00"
-#define WIFI_SSID     PRIVATE_WIFI_SSID
-#define WIFI_PASSWORD PRIVATE_WIFI_PASSWORD
+#define APP_VERSION   "mesureAndSendMailLater B02  node00"
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
-#define HTTP_SERVER   "www.free.fr"        // replace with your FAI http server
-#define SMTP_SERVER   "smtp.free.fr"       // replace with your FAI smtp server 
+#define HTTP_SERVER   "www.free.fr"        // for clock syncr replace with your FAI http server
+#define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server 
+#define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
+#define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
 #define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
 #define DATA_FILENAME "/data.csv"
 
@@ -122,7 +128,7 @@ void setup() {
       f.print(dht11Values.humidity, 1);
       f.print("\t");
       f.print(dht11Values.temperature, 2);
-     f.print("\t");
+      f.print("\t");
       f.print(Vcc, 2);
       f.print("\n");
       D_println(f.size());
@@ -176,7 +182,7 @@ void setup() {
     Serial.println(F("!!! Force WiFi to STA mode !!!  should be done only ONCE even if we power off "));
     logDataCSV("Restore WiFI credential");
     WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    //WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
 
   bp0Status = digitalRead(BP0);
@@ -206,7 +212,7 @@ void setup() {
 }
 
 bool mailSended = false;
-
+time_t connectedTimeStamp  = 0;
 
 void loop() {
   // Save the time when it change so we can reboot with localtime almost acurate
@@ -214,12 +220,20 @@ void loop() {
     //        Serial.print(F("Save clock "));
     //        Serial.println( Ctime(now()) );
     MyDeepSleepManager.setActualTimestamp();
+
+    // this will append every seconds
+
+    // If we are not connected we warn the user every 30 seconds that we need to update credential
+    if ( !connectedTimeStamp ) {
+      // every 30 sec
+      if ( (now() - MyDeepSleepManager.getBootTimestamp()) % 30 == 0 ) {
+        Serial.println(F("device not connected to local WiFi"));
+        D_println(WiFi.SSID());
+        Serial.println(F("type 'W' to adjust WiFi credential"));
+      }
+    }
   }
-  //  // 30 seconde au bout d'un deep sleep on relance
-  //  static uint32_t oldMillis = millis();
-  //  if ( millis() - oldMillis > 30  && MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED ) {
-  //
-  //  }
+
 
 
   // check for connection to local WiFi
@@ -233,6 +247,9 @@ void loop() {
     // on connection to WiFI we try to setup clock and send mail
     do {
       if (WiFiStatus != WL_CONNECTED)  break;
+
+      connectedTimeStamp = now();
+
       Vcc = getVcc();
       logDataCSV( "WiFI Connected Vcc=" + String(Vcc) );
       if (!connectedToInternet()) {
@@ -352,8 +369,24 @@ void loop() {
       //      Serial.println(Ctime(&anow));
 
     }
-
+    if (aChar == 'W') {
+      Serial.println(F("SETUP WIFI : 'W WifiName,password"));
+      if ( Serial.read() == ' ') {
+        String ssid = Serial.readStringUntil(',');
+        Serial.println(ssid);
+        ssid.trim();
+        if (ssid != "") {
+          String pass = Serial.readStringUntil('\n');
+          pass.replace("\r", "");
+          pass.trim();
+          Serial.println(pass);
+          bool result = WiFi.begin(ssid, pass);
+          D_println(result);
+        }
+      }
+    }
   }
+
   static uint32_t lastDown = millis();
   if ( bp0Status != digitalRead(BP0) ) {
     bp0Status = !bp0Status;
@@ -393,9 +426,10 @@ bool connectedToInternet() {
 
   Serial.println(F("connect to " CAPTIVE " to get time and check connectivity to www"));
 
+  WiFiClient client;
   HTTPClient http;  //Declare an object of class HTTPClient
 
-  http.begin("http://" CAPTIVE);  //Specify request destination
+  http.begin(client, "http://" CAPTIVE); //Specify request destination
   // we need date to setup clock
   const char * headerKeys[] = {"date"} ;
   const size_t numberOfHeaders = 1;
@@ -482,14 +516,12 @@ bool connectedToInternet() {
 bool sendDataCsvTo(const String sendto)  {
   Serial.print("Send data.csv to ");
   Serial.println(sendto);
-  WiFiClient tcp;  //Declare an object of class Client to make a TCP connection
+  WiFiClient tcp;  //Declare an object of Wificlass Client to make a TCP connection
   String aLine;    // to get answer of SMTP
-  if ( !tcp.connect(SMTP_SERVER, 25) ) {
-    Serial.println("unable to connect with " SMTP_SERVER ":25" );
-    return false;
-  }
-  bool mailOk = false;
+  // Try to find a valid smtp
+  bool valideSmtp = false;
   do {
+
     Serial.println("connected with " SMTP_SERVER ":25" );
     aLine = tcp.readStringUntil('\n');
     if (!aLine.startsWith("220 "))  break;  //  not good answer
@@ -534,20 +566,88 @@ bool sendDataCsvTo(const String sendto)  {
         tcp.print('\t');
         tcp.print(aLine);
         tcp.print("\r\n");
+
       }
-      f.close();
     }
 
-    tcp.print(F("==Eof data.csv ==\r\n"));
-
-    // end of body
-    tcp.print("\r\n.\r\n");
-    aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("250 "))  break;  //  not goog answer
-
-    mailOk = true;
+    Serial.println(F("unable to connect with any smtp server"));
     break;
   } while (false);
+
+  bool mailOk = false;
+  if (valideSmtp) do {
+      Serial.println(F("HELO arduino"));
+      tcp.print(F("HELO arduino \r\n")); // EHLO send too much line
+      aLine = tcp.readStringUntil('\n');
+      if ( aLine.toInt() != 250 )  break;  //  not good answer
+      // autentification
+      if (SMTP_LOGIN != "") {
+        Serial.println(F("AUTH LOGIN"));
+        tcp.print(F("AUTH LOGIN \r\n"));
+        aLine = tcp.readStringUntil('\n');
+        if (aLine.toInt() != 334 )  break;  //  not good answer
+        
+        //Serial.println(F("SEND LOGIN"));
+        tcp.print(F(SMTP_LOGIN "\r\n"));
+        aLine = tcp.readStringUntil('\n');
+        if (aLine.toInt() != 334 )  break;  //  not good answer
+        
+        //Serial.println(F("SEND PASS"));
+        tcp.print(F(SMTP_PASS "\r\n"));
+        aLine = tcp.readStringUntil('\n');
+        if (aLine.toInt() != 235 )  break;  //  not good answer
+      }
+
+
+      Serial.println(F("MAIL FROM: " SEND_FROM));
+      tcp.print(F("MAIL FROM: " SEND_FROM "\r\n"));
+      aLine = tcp.readStringUntil('\n');
+      if ( aLine.toInt() != 250 )  break;  //  not good answer
+
+      Serial.println("RCPT TO: " + sendto);
+      tcp.print("RCPT TO: " + sendto + "\r\n");
+      aLine = tcp.readStringUntil('\n');
+      if ( aLine.toInt() != 250 )  break;  //  not good answer
+
+      Serial.println(F("DATA"));
+      tcp.print(F("DATA\r\n"));
+      aLine = tcp.readStringUntil('\n');
+      if ( aLine.toInt() != 354 )  break;  //  not goog answer
+
+      //Serial.println( "Mail itself" );
+      tcp.print("Subject: test mail from " APP_VERSION "\r\n");
+      tcp.print("\r\n");  // end of header
+      // body
+      //    tcp.print("ceci est un mail de test\r\n");
+      //    tcp.print("destine a valider la connection\r\n");
+      //    tcp.print("au serveur SMTP\r\n");
+      //    tcp.print("\r\n");
+      tcp.print(F(" == == = data.csv == \r\n"));
+      File f = MyFS.open(DATA_FILENAME, "r");
+      if (f) {
+        while (f.available()) {
+          String aTime = f.readStringUntil('\t');
+          String aLine = f.readStringUntil('\n');
+          tcp.print(Ctime(aTime.toInt()));
+          tcp.print('\t');
+          tcp.print(aTime);
+          tcp.print('\t');
+          tcp.print(aLine);
+          tcp.print("\r\n");
+        }
+        f.close();
+      }
+
+      tcp.print(F(" == Eof data.csv == \r\n"));
+
+      // end of body
+      tcp.print("\r\n.\r\n");
+      aLine = tcp.readStringUntil('\n');
+      if ( aLine.toInt() != 250 )  break;  //  not goog answer
+
+      mailOk = true;
+      break;
+    } while (false);
   D_println(mailOk);
   D_println(aLine);
   Serial.println( "quit" );
@@ -622,10 +722,10 @@ String Ctime(time_t time) {
   if (txt == date) {
     txt = "";
   } else {
-    txt += " ";
     date = txt;
+    txt += " ";
   }
-  txt = str2digits(hour(time));
+  txt += str2digits(hour(time));
   txt += ':';
   txt += str2digits(minute(time));
   txt += ':';
