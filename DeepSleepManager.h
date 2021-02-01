@@ -1,7 +1,7 @@
 /*************************************************
  *************************************************
     DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
-    Copyright 2020  NET234
+    Copyright 2020  NET234 https://github.com/net234/DeepSleepManager
 
 This file is part of DeepSleepManager.
 
@@ -19,6 +19,11 @@ This file is part of DeepSleepManager.
     along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
 
   
+
+V1.0  First realease
+
+V1.0.1
+  add permanentDeepSleep() 
 
    TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
 
@@ -52,7 +57,7 @@ class DeepSleepManager {
   public:
     uint8_t  getRstReason(const int16_t buttonPin = -1 );          // return the reason of the deepsleep awake (adjusted reason)
     void     startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment = 0, const uint16_t offset = 0 ); // start a deepSleepMode with   default increment 3 hours
- 
+    void     permanentDeepSleep();
     void     continueDeepSleep();
     void     WiFiUnlock();                                        // arm a reset to restore WiFi back
     bool     WiFiLocked;            // true if wifi is locked (awake from a deep sleep)
@@ -70,8 +75,8 @@ class DeepSleepManager {
       // all these values are keep in RTC RAM
       float     checkPI;              // initialised to PI value to check POWER_ON Boot
       uint16_t  bootCounter;          // Number of reboot since power on
-      int16_t   increment;            // increment requested // -1 if it is a wifi restore
-      uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep
+      int16_t   increment;            // increment requested // -1 if it is a wifi restore (max 9H)
+      uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep  (Over 100 year)
       time_t    actualTimestamp;      // time stamp restored on next end of deep sleep Should be update in the loop() with setActualTimestamp
       time_t    powerOnTimestamp;     // Timestamp of the power on (set to 0 at power on)
     } savedRTCmemory;

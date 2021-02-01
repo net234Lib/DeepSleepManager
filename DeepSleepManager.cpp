@@ -1,7 +1,7 @@
 /*************************************************
  *************************************************
     DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
-    Copyright 2020  NET234
+    Copyright 2020  NET234 https://github.com/net234/DeepSleepManager
 
 This file is part of DeepSleepManager.
 
@@ -103,6 +103,14 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 //you will need to implement an additional ``WAKE_RF_DEFAULT`` before WiFi functionality is available.
 //https://github.com/esp8266/Arduino/pull/7338/commits/ae0d8ffe84944284665facf13f847887e6459cfa
 
+
+void DeepSleepManager::permanentDeepSleep() {
+  savedRTCmemory.remainingTime = 0;
+  savedRTCmemory.increment = 0;
+   savedRTCmemory.actualTimestamp = now();
+  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  ESP.deepSleep(0,RF_DEFAULT);  
+}
 
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.remainingTime = sleepTimeSeconds;
