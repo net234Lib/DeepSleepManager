@@ -16,16 +16,30 @@
 
   mesures : ESP8266-E12 3v3 Alone
   Wifi connected modem  =  15ma / 23ma / 60ma / 170ma
-  Deep sleep            =0,02ma / 12ma /
+  Deep sleep            =0,02ma 
 
-  mesures : nodeMcu dev board ESP8266-E12 3v3
+  mesures : nodeMcu dev board CP2120 ESP8266-E12 3v3
   Wifi connected modem  =  24ma / 28ma / 77ma / 190ma
-  Deep sleep            = 9,3ma / 22ma /
+  Deep sleep            = 9,3ma 
 
-  mesures : nodeMcu dev board ESP8266-E12 5V usb or 5V Vin
+  mesures : nodeMcu dev board CP2120 ESP8266-E12 5V usb or 5V Vin 
   Wifi connected modem  =  25ma / 29ma / 80ma / 190ma
-  Deep sleep            =10,2ma / 22ma /
+  Deep sleep            = 10,2ma 
 
+  mesures : nodeMcu dev board CH340 ESP8266-E12 3v3
+  Wifi connected modem  =  14ma / 18ma / 70ma / 180ma
+  Deep sleep            = 1,8ma 
+
+  mesures : nodeMcu dev board CH340 ESP8266-E12 3v3 without AMS117
+  Wifi connected modem  =  14ma / 18ma / 70ma / 180ma
+  Deep sleep            = 0,15ma 
+
+  mesures : nodeMcu dev board CP2120 ESP8266-E12 3v3 without AMS117
+  Wifi connected modem  =  25ma / 29ma / 80ma / 190ma
+  Deep sleep            = 7,8ma 
+ 
+
+  
   TODO: log if mail sended
 
 */

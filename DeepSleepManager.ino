@@ -86,7 +86,7 @@ void setup() {
 
   if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
     Serial.begin(115200);
-    Serial.println(F("\r" APP_VERSION));
+    Serial.println(F("\n" APP_VERSION));
 
 
 

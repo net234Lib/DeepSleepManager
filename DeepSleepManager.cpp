@@ -27,7 +27,7 @@ This file is part of DeepSleepManager.
 
 
 #include "DeepSleepManager.h"
-#include <ESP8266WiFi.h>
+
 
 //My WiFi won't reconnect after deep sleep using ``WAKE_RF_DISABLED``
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

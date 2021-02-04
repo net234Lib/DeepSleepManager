@@ -29,6 +29,8 @@ V1.0.1
 
 **********************************************************************************/
 #include <Arduino.h>
+#include <user_interface.h>
+//#include <ESP8266WiFi.h>
 
 //#include <Time.h>
 #include <TimeLib.h>
