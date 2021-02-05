@@ -27,7 +27,7 @@ DeepSleepManager MyDeepSleepManager;
 //struct __attribute__((packed)) myDSMSavedData {
 struct  myDSMSavedData {
   byte aNumber = 1;
-  char aName[32] = "anonymous Arduino";
+  char aName[30] = "anonymous Arduino";
 };
 
 myDSMSavedData MySavedData;
@@ -113,6 +113,7 @@ void loop() {
     char aChar = (char)Serial.read();
     if (aChar == 'N') {
       Serial.println("Change my name : 'N myNewName'");
+      delay(10);
       if ( (char)Serial.read() == ' ') {
         String aName = Serial.readString();
         Serial.println(aName);
