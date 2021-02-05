@@ -20,8 +20,8 @@ This file is part of DeepSleepManager.
 
   
 
-   TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
-
+   TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
+   TODO: save a user struct in RTC memory
 **********************************************************************************/
 
 #include <Arduino.h>
