@@ -3,7 +3,7 @@
     DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
     Copyright 2020  NET234 https://github.com/net234/DeepSleepManager
 
-This file is part of DeepSleepManager.
+  This file is part of DeepSleepManager.
 
     DeepSleepManager is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -18,19 +18,19 @@ This file is part of DeepSleepManager.
     You should have received a copy of the GNU Lesser General Public License
     along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
 
-  
 
-V1.0  First realease
 
-V1.0.1
-  add permanentDeepSleep() 
-V1.0.2
+  V1.0  First realease
+
+  V1.0.1
+  add permanentDeepSleep()
+  V1.0.2
   removed #include <ESP8266WiFi.h> from .ccp
-  
+
    TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
    TODO: save a user struct in RTC memory
    TODO: add a checksum to control RTC ram data
-   
+
 **********************************************************************************/
 #include <Arduino.h>
 #include <user_interface.h>
@@ -56,6 +56,10 @@ V1.0.2
 
 
 class DeepSleepManager {
+// this is ugly but we need this to get correct sizeof()
+#define restoreRTCStruct(x) restoreRTCData((uint32_t*)&x,sizeof(x))
+#define saveRTCStruct(x)    saveRTCData((uint32_t*)&x,sizeof(x))
+
   public:
     uint8_t  getRstReason(const int16_t buttonPin = -1 );          // return the reason of the deepsleep awake (adjusted reason)
     void     startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment = 0, const uint16_t offset = 0 ); // start a deepSleepMode with   default increment 3 hours
@@ -65,14 +69,17 @@ class DeepSleepManager {
     bool     WiFiLocked;            // true if wifi is locked (awake from a deep sleep)
     uint16_t getBootCounter();      // Number of reboot since power on
     uint32_t getRemainingTime();    // Number of second remaining to terminate deep sleep
-    time_t   getBootTimestamp();    // Timestamp of the last boot time 
+    time_t   getBootTimestamp();    // Timestamp of the last boot time
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
     time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
     void     setActualTimestamp(time_t timestamp = 0);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
+    bool     restoreRTCData( uint32_t* data, const uint8_t size);
+    bool     saveRTCData( uint32_t* data, const uint8_t size);
 
   private:
     uint8_t  rstReason = REASON_NOT_INITED;    // reason of restart adjusted from ESP.getResetInfoPtr();
-    time_t   bootTimestamp; 
+    time_t   bootTimestamp;
+    //struct __attribute__((packed))  {
     struct  {
       // all these values are keep in RTC RAM
       float     checkPI;              // initialised to PI value to check POWER_ON Boot

@@ -3,7 +3,7 @@
     DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
     Copyright 2020  NET234 https://github.com/net234/DeepSleepManager
 
-This file is part of DeepSleepManager.
+  This file is part of DeepSleepManager.
 
     DeepSleepManager is free software: you can redistribute it and/or modify
     it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,7 @@ This file is part of DeepSleepManager.
     You should have received a copy of the GNU Lesser General Public License
     along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
 
-  
+
 
    TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
 
@@ -80,7 +80,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   adjustTime(savedRTCmemory.actualTimestamp);
   savedRTCmemory.bootCounter++;
 
-  // check for enable Wifi  (tricky stuff) restore previous restart event to hide WiFi restart 
+  // check for enable Wifi  (tricky stuff) restore previous restart event to hide WiFi restart
   if (savedRTCmemory.increment < 0) {
     rstReason = -savedRTCmemory.increment;
     savedRTCmemory.increment = 0;
@@ -88,7 +88,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   bootTimestamp = savedRTCmemory.actualTimestamp;
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
 
- 
+
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
   //system_rtc_mem_write(10, &savedRTCmemory, sizeof(savedRTCmemory));
   return (rstReason);
@@ -107,9 +107,9 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
 void DeepSleepManager::permanentDeepSleep() {
   savedRTCmemory.remainingTime = 0;
   savedRTCmemory.increment = 0;
-   savedRTCmemory.actualTimestamp = now();
+  savedRTCmemory.actualTimestamp = now();
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
-  ESP.deepSleep(0,RF_DEFAULT);  
+  ESP.deepSleep(0, RF_DEFAULT);
 }
 
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
@@ -122,8 +122,8 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
     nextIncrement = savedRTCmemory.remainingTime;
   }
   if (offset > 0) {
-    nextIncrement -=offset;
-    if ( nextIncrement <=0 ) nextIncrement = 1; 
+    nextIncrement -= offset;
+    if ( nextIncrement <= 0 ) nextIncrement = 1;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
   //Serial.print("sizeof savedRTCmemory=");
@@ -172,7 +172,7 @@ uint32_t DeepSleepManager::getRemainingTime() {    // Number of second remaining
   return savedRTCmemory.remainingTime;
 }
 
-time_t   DeepSleepManager::getBootTimestamp() {    // Timestamp of the last boot time 
+time_t   DeepSleepManager::getBootTimestamp() {    // Timestamp of the last boot time
   return bootTimestamp;
 }
 
@@ -190,10 +190,27 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
   if (bootTimestamp == 0 ) {
     bootTimestamp = timestamp - millis() / 1000;
   }
-  if (savedRTCmemory.powerOnTimestamp == 0 && year(timestamp)>=2000) {
+  if (savedRTCmemory.powerOnTimestamp == 0 && year(timestamp) >= 2000) {
     savedRTCmemory.powerOnTimestamp = timestamp - savedRTCmemory.actualTimestamp;
     bootTimestamp -= timestamp - savedRTCmemory.actualTimestamp;
   }
   savedRTCmemory.actualTimestamp = timestamp;
   ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+}
+
+bool DeepSleepManager::restoreRTCData( uint32_t* data, const uint8_t size) {
+  Serial.print("savedRTCmemory.bootCounter  ");
+  Serial.println(savedRTCmemory.bootCounter);
+
+  if (savedRTCmemory.bootCounter <= 1) return false;
+  Serial.print("Restore RTC data  ");
+
+  Serial.println(size);
+  return ESP.rtcUserMemoryRead( (sizeof(savedRTCmemory) + 3) / 4, data, size );
+}
+bool DeepSleepManager::saveRTCData( uint32_t* data, const uint8_t size) {
+  if ( (sizeof(savedRTCmemory) + 3) / 4 + (size + 3) / 4 > 125 ) return (false);
+  Serial.print("Save RTC data");
+  Serial.println(size);
+  return ESP.rtcUserMemoryWrite( (sizeof(savedRTCmemory) + 3) / 4, data, size );
 }
