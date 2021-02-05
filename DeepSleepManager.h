@@ -24,9 +24,13 @@ V1.0  First realease
 
 V1.0.1
   add permanentDeepSleep() 
-
-   TODO: grab millisec lost in a RTC memory varibale for a better adjust of timestamps
-
+V1.0.2
+  removed #include <ESP8266WiFi.h> from .ccp
+  
+   TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
+   TODO: save a user struct in RTC memory
+   TODO: add a checksum to control RTC ram data
+   
 **********************************************************************************/
 #include <Arduino.h>
 #include <user_interface.h>
@@ -37,21 +41,17 @@ V1.0.1
 
 // ESP standard restart reason keywords
 //enum rst_reason {
-// REASON_DEFAULT_RST = 0, /* normal startup by power on */
-// REASON_WDT_RST = 1, /* hardware watch dog reset */
-// REASON_EXCEPTION_RST = 2, /* exception reset, GPIO status won't change */
-// REASON_SOFT_WDT_RST   = 3, /* software watch dog reset, GPIO status won't change */
-// REASON_SOFT_RESTART = 4, /* software restart ,system_restart , GPIO status won't change */
-// REASON_DEEP_SLEEP_AWAKE = 5, /* wake up from deep-sleep */
-// REASON_EXT_SYS_RST      = 6 /* external system reset */
-//};
-// specific reason to
-
-// Specific restart reason
-#define REASON_USER_BUTTON  10
-//#define REASON_RESTORE_WIFI 11
-#define REASON_DEEP_SLEEP_TERMINATED 11
-#define REASON_NOT_INITED   19
+// REASON_DEFAULT_RST = 0,              /* normal startup by power on */
+// REASON_WDT_RST = 1,                  /* hardware watch dog reset */
+// REASON_EXCEPTION_RST = 2,            /* exception reset, GPIO status won't change */
+// REASON_SOFT_WDT_RST   = 3,           /* software watch dog reset, GPIO status won't change */
+// REASON_SOFT_RESTART = 4,             /* software restart ,system_restart , GPIO status won't change */
+// REASON_DEEP_SLEEP_AWAKE = 5,         /* wake up from deep-sleep */
+// REASON_EXT_SYS_RST      = 6          /* external system reset */
+// Specific DeepSleepManager restart reason
+#define REASON_USER_BUTTON  10  /* user button detected */
+#define REASON_DEEP_SLEEP_TERMINATED 11 /* full deep sleep cycle is terminated */
+#define REASON_NOT_INITED   19          /* used internaly */
 
 
 
