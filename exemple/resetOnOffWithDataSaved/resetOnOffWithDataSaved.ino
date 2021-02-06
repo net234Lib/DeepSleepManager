@@ -62,7 +62,7 @@ void setup() {
   // restore the saved Data from the RTC memory
 
   Serial.println("\r\n\n\n" "resetOnOff resetOnOffWithDataSaved");
-  MyDeepSleepManager.restoreRTCStruct(MySavedData);
+  MyDeepSleepManager.restoreRTCData(RTC_DATA(MySavedData));
 
   D_println(sizeof(MySavedData));
 
@@ -72,7 +72,7 @@ void setup() {
   Serial.print("This is the "); Serial.print(MySavedData.aNumber); Serial.println("' time that I wake up since I was powered on.");
   Serial.println("You can change my name if you type 'N mynewname'");
   MySavedData.aNumber++;
-  MyDeepSleepManager.saveRTCStruct(MySavedData);
+  MyDeepSleepManager.saveRTCData(RTC_DATA(MySavedData));
   Serial.println("I am ON my led BLINK");
 
 
@@ -121,7 +121,7 @@ void loop() {
         aName = aName.substring(0,30);
         Serial.print("My new name is '");Serial.print(aName);Serial.println("'");
         strcpy(MySavedData.aName,aName.c_str());
-        MyDeepSleepManager.saveRTCStruct(MySavedData);
+        MyDeepSleepManager.saveRTCData(RTC_DATA(MySavedData));
         
       }
     }

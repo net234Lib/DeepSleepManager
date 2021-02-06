@@ -26,9 +26,12 @@
   add permanentDeepSleep()
   V1.0.2
   removed #include <ESP8266WiFi.h> from .ccp
+  V1.0.3 06/02/2021
+  add restoreRTCData and saveRTCData
+  add beter checksum control of data
 
    TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
-   TODO: save a user struct in RTC memory
+   DONE V1.0.03: save a user struct in RTC memory
    TODO: add a checksum to control RTC ram data
 
 **********************************************************************************/
@@ -56,9 +59,8 @@
 
 
 class DeepSleepManager {
-// this is ugly but we need this to get correct sizeof()
-#define restoreRTCStruct(x) restoreRTCData((uint32_t*)&x,sizeof(x))
-#define saveRTCStruct(x)    saveRTCData((uint32_t*)&x,sizeof(x))
+
+
 
   public:
     uint8_t  getRstReason(const int16_t buttonPin = -1 );          // return the reason of the deepsleep awake (adjusted reason)
@@ -73,21 +75,33 @@ class DeepSleepManager {
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
     time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
     void     setActualTimestamp(time_t timestamp = 0);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
-    bool     restoreRTCData( uint32_t* data, const uint8_t size);
-    bool     saveRTCData( uint32_t* data, const uint8_t size);
+    // helper for save and restore RTC_DATA
+    // this is ugly but we need this to get correct sizeof()
+#define  RTC_DATA(x) (uint32_t*)&x,sizeof(x)
+    bool     restoreRTCData( uint32_t* data, const uint16_t size);
+    bool     saveRTCData( uint32_t* data, const uint16_t size);
+    //#define  CRC_DATA(x) (uint8_t*)&x,sizeof(x)
 
+    //  bool setUserCrc8( uint8_t* data, const uint8_t size, &refCrc );
   private:
+    bool setCrc8(const void* data, const uint16_t size, uint8_t &refCrc );
+    bool saveRTCmemory();
     uint8_t  rstReason = REASON_NOT_INITED;    // reason of restart adjusted from ESP.getResetInfoPtr();
     time_t   bootTimestamp;
-    //struct __attribute__((packed))  {
+    const    uint8_t structSizeInt32 = (sizeof(savedRTCmemory) + 3) / 4;
+    //struct __attribute__((packed))
     struct  {
       // all these values are keep in RTC RAM
-      float     checkPI;              // initialised to PI value to check POWER_ON Boot
+      uint8_t   crc8;
+      uint8_t   userDataCrc8;
+      uint16_t  userDataSize;
+
       uint16_t  bootCounter;          // Number of reboot since power on
       int16_t   increment;            // increment requested // -1 if it is a wifi restore (max 9H)
       uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep  (Over 100 year)
       time_t    actualTimestamp;      // time stamp restored on next end of deep sleep Should be update in the loop() with setActualTimestamp
       time_t    powerOnTimestamp;     // Timestamp of the power on (set to 0 at power on)
+
     } savedRTCmemory;
 
 

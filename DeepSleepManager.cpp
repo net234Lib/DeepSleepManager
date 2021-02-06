@@ -60,12 +60,14 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   }
 
   // adjust ESP rstReason if RTC memory not initialised
-  //system_rtc_mem_read(64, &savedRTCmemory, sizeof(savedRTCmemory));
-  ESP.rtcUserMemoryRead(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  
+  ESP.rtcUserMemoryRead(0, RTC_DATA(savedRTCmemory));
   // if RTCmemory not proprely inited it is a cold boot
-  if (savedRTCmemory.checkPI != float(PI)) {
+
+  //Serial.print("CRC1="); Serial.println(getCrc8( (uint8_t*)&savedRTCmemory,sizeof(savedRTCmemory) ));
+  if ( !setCrc8( &savedRTCmemory.crc8 + 1, sizeof(savedRTCmemory) - 1, savedRTCmemory.crc8 ) ) {
     //Serial.println("Power on boot");
-    savedRTCmemory.checkPI = PI;
+    //savedRTCmemory.crc8 = 0;
     savedRTCmemory.bootCounter = 0;
     savedRTCmemory.increment = 0;
     savedRTCmemory.remainingTime = 0;
@@ -87,9 +89,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   }
   bootTimestamp = savedRTCmemory.actualTimestamp;
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
-
-
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
   //system_rtc_mem_write(10, &savedRTCmemory, sizeof(savedRTCmemory));
   return (rstReason);
 }
@@ -108,7 +108,7 @@ void DeepSleepManager::permanentDeepSleep() {
   savedRTCmemory.remainingTime = 0;
   savedRTCmemory.increment = 0;
   savedRTCmemory.actualTimestamp = now();
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
   ESP.deepSleep(0, RF_DEFAULT);
 }
 
@@ -135,7 +135,7 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
     adjust += (milli % 1000) * 1000;
   }
   savedRTCmemory.actualTimestamp = now() + nextIncrement;
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
 
@@ -148,7 +148,7 @@ void DeepSleepManager::continueDeepSleep() {
   }
   savedRTCmemory.remainingTime -= nextIncrement;
   savedRTCmemory.actualTimestamp = now() + nextIncrement;
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
 
   if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
@@ -159,7 +159,7 @@ void DeepSleepManager::continueDeepSleep() {
 void DeepSleepManager::WiFiUnlock() {
   savedRTCmemory.increment = -rstReason;
   savedRTCmemory.remainingTime = 0;
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
   ESP.deepSleep(50L * 1000, RF_DEFAULT);   //reset in 50 ms to clear RF_DISABLED
   while (true) delay(1);
 }
@@ -195,22 +195,80 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
     bootTimestamp -= timestamp - savedRTCmemory.actualTimestamp;
   }
   savedRTCmemory.actualTimestamp = timestamp;
-  ESP.rtcUserMemoryWrite(0, (uint32_t*)&savedRTCmemory, sizeof(savedRTCmemory));
+  saveRTCmemory();
 }
 
-bool DeepSleepManager::restoreRTCData( uint32_t* data, const uint8_t size) {
-  Serial.print("savedRTCmemory.bootCounter  ");
+
+bool DeepSleepManager::saveRTCmemory() {
+  setCrc8(&savedRTCmemory.crc8 + 1, sizeof(savedRTCmemory) - 1, savedRTCmemory.crc8);
+  //system_rtc_mem_read(64, &savedRTCmemory, sizeof(savedRTCmemory));
+  return ESP.rtcUserMemoryWrite(0, RTC_DATA(savedRTCmemory) );
+}
+
+
+
+bool DeepSleepManager::restoreRTCData( uint32_t* data, const uint16_t size) {
+  Serial.print(" SAVE RTC savedRTCmemory.bootCounter  ");
   Serial.println(savedRTCmemory.bootCounter);
 
-  if (savedRTCmemory.bootCounter <= 1) return false;
+  if (savedRTCmemory.bootCounter <= 1 || savedRTCmemory.userDataSize != size) return false;
+  uint32_t buffer[(sizeof(savedRTCmemory) + 3) / 4];
+  if ( !ESP.rtcUserMemoryRead( (sizeof(savedRTCmemory) + 3) / 4, buffer, size ) ) return false;
+  if ( !setCrc8(buffer, size, savedRTCmemory.userDataCrc8) ) return false;
   Serial.print("Restore RTC data  ");
-
+  memcpy(data,buffer,size);  
   Serial.println(size);
   return ESP.rtcUserMemoryRead( (sizeof(savedRTCmemory) + 3) / 4, data, size );
 }
-bool DeepSleepManager::saveRTCData( uint32_t* data, const uint8_t size) {
+
+bool DeepSleepManager::saveRTCData( uint32_t* data, const uint16_t size) {
   if ( (sizeof(savedRTCmemory) + 3) / 4 + (size + 3) / 4 > 125 ) return (false);
-  Serial.print("Save RTC data");
+  Serial.print("Save RTC data ");
   Serial.println(size);
-  return ESP.rtcUserMemoryWrite( (sizeof(savedRTCmemory) + 3) / 4, data, size );
+  //
+  setCrc8(data, size, savedRTCmemory.userDataCrc8);
+  return ESP.rtcUserMemoryWrite( (sizeof(savedRTCmemory) + 3) / 4, data, size ) && saveRTCmemory();
+}
+
+
+inline uint8_t _crc8_ccitt_update(uint8_t crc, const uint8_t inData);
+
+bool  DeepSleepManager::setCrc8(const void* data, const uint16_t size, uint8_t &refCrc ) {
+  //uint8_t* oldCrc = data++;
+  uint8_t* dataPtr = (uint8_t*)data;
+  Serial.print("CRCPRT0 "); Serial.println((uint32_t)&savedRTCmemory, HEX);
+  //  Serial.print("CRCPRT02 "); Serial.println((uint32_t)&savedRTCmemory.bootCounter,HEX);
+  Serial.print("CRCPRT1 "); Serial.println((uint32_t)data, HEX);
+  Serial.print("CRCPRT2 "); Serial.println((uint32_t)dataPtr, HEX);
+  //  Serial.print("CRCPRT3 "); Serial.println((uint32_t)&refCrc,HEX);
+  //  Serial.print("CRCPRT4 "); Serial.println((uint16_t)*(char*)&savedRTCmemory+4,HEX);
+  //  Serial.print("CRCPRT5 "); Serial.println((uint16_t)*((char*)&savedRTCmemory+4),HEX);
+  Serial.print("CRCSIZE "); Serial.println(size);
+  uint8_t crc = 0xFF;
+  for (uint8_t i = 0; i < size; i++) crc = _crc8_ccitt_update(crc, *(dataPtr++));
+  Serial.print("CRC "); Serial.print(refCrc); Serial.print(" / "); Serial.println(crc);
+  bool result = (crc == refCrc);
+  refCrc = crc;
+  return result;
+}
+
+/////////////////////////////////////////////////////////////////////////
+//  crc 8 tool
+// https://www.nongnu.org/avr-libc/user-manual/group__util__crc.html
+
+
+//__attribute__((always_inline))
+inline uint8_t _crc8_ccitt_update  (uint8_t crc, const uint8_t inData)   {
+  uint8_t   i;
+  crc ^= inData;
+
+  for ( i = 0; i < 8; i++ ) {
+    if (( crc & 0x80 ) != 0 ) {
+      crc <<= 1;
+      crc ^= 0x07;
+    } else {
+      crc <<= 1;
+    }
+  }
+  return crc;
 }
