@@ -26,6 +26,8 @@ getBootTimestamp	KEYWORD2
 getPowerOnTimestamp	KEYWORD2
 getActualTimestamp	KEYWORD2
 setActualTimestamp	KEYWORD2
+saveRTCData	KEYWORD2
+restoreRTCData	KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
@@ -37,3 +39,4 @@ setActualTimestamp	KEYWORD2
 
 REASON_USER_BUTTON	LITERAL1
 REASON_DEEP_SLEEP_TERMINATED	LITERAL1
+RTC_DATA	LITERAL1

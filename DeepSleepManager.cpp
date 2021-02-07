@@ -60,7 +60,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   }
 
   // adjust ESP rstReason if RTC memory not initialised
-  
+
   ESP.rtcUserMemoryRead(0, RTC_DATA(savedRTCmemory));
   // if RTCmemory not proprely inited it is a cold boot
 
@@ -208,45 +208,36 @@ bool DeepSleepManager::saveRTCmemory() {
 
 
 bool DeepSleepManager::restoreRTCData( uint32_t* data, const uint16_t size) {
-  Serial.print(" SAVE RTC savedRTCmemory.bootCounter  ");
-  Serial.println(savedRTCmemory.bootCounter);
-
+  const uint16_t offset = (sizeof(savedRTCmemory) + 3) / 4;
   if (savedRTCmemory.bootCounter <= 1 || savedRTCmemory.userDataSize != size) return false;
-  uint32_t buffer[(sizeof(savedRTCmemory) + 3) / 4];
-  if ( !ESP.rtcUserMemoryRead( (sizeof(savedRTCmemory) + 3) / 4, buffer, size ) ) return false;
-  if ( !setCrc8(buffer, size, savedRTCmemory.userDataCrc8) ) return false;
-  Serial.print("Restore RTC data  ");
-  memcpy(data,buffer,size);  
-  Serial.println(size);
-  return ESP.rtcUserMemoryRead( (sizeof(savedRTCmemory) + 3) / 4, data, size );
+
+  uint32_t buffer[(size + 3) / 4];
+  if (!ESP.rtcUserMemoryRead( offset, buffer, size))   return false;
+
+  uint8_t  aCrc8;
+  setCrc8(buffer, size, aCrc8);
+  if ( aCrc8 != savedRTCmemory.userDataCrc8 )   return false;
+
+  memcpy(data, buffer, size);
+  return true;
 }
 
 bool DeepSleepManager::saveRTCData( uint32_t* data, const uint16_t size) {
-  if ( (sizeof(savedRTCmemory) + 3) / 4 + (size + 3) / 4 > 125 ) return (false);
-  Serial.print("Save RTC data ");
-  Serial.println(size);
-  //
+  const uint16_t offset = (sizeof(savedRTCmemory) + 3) / 4;
+  if ( offset + (size + 3) / 4 > 125 ) return (false);
   setCrc8(data, size, savedRTCmemory.userDataCrc8);
-  return ESP.rtcUserMemoryWrite( (sizeof(savedRTCmemory) + 3) / 4, data, size ) && saveRTCmemory();
+  savedRTCmemory.userDataSize = size;
+  return ESP.rtcUserMemoryWrite( offset, data, size ) && saveRTCmemory();
 }
 
 
 inline uint8_t _crc8_ccitt_update(uint8_t crc, const uint8_t inData);
 
 bool  DeepSleepManager::setCrc8(const void* data, const uint16_t size, uint8_t &refCrc ) {
-  //uint8_t* oldCrc = data++;
   uint8_t* dataPtr = (uint8_t*)data;
-  Serial.print("CRCPRT0 "); Serial.println((uint32_t)&savedRTCmemory, HEX);
-  //  Serial.print("CRCPRT02 "); Serial.println((uint32_t)&savedRTCmemory.bootCounter,HEX);
-  Serial.print("CRCPRT1 "); Serial.println((uint32_t)data, HEX);
-  Serial.print("CRCPRT2 "); Serial.println((uint32_t)dataPtr, HEX);
-  //  Serial.print("CRCPRT3 "); Serial.println((uint32_t)&refCrc,HEX);
-  //  Serial.print("CRCPRT4 "); Serial.println((uint16_t)*(char*)&savedRTCmemory+4,HEX);
-  //  Serial.print("CRCPRT5 "); Serial.println((uint16_t)*((char*)&savedRTCmemory+4),HEX);
-  Serial.print("CRCSIZE "); Serial.println(size);
   uint8_t crc = 0xFF;
   for (uint8_t i = 0; i < size; i++) crc = _crc8_ccitt_update(crc, *(dataPtr++));
-  Serial.print("CRC "); Serial.print(refCrc); Serial.print(" / "); Serial.println(crc);
+  //Serial.print("CRC "); Serial.print(refCrc); Serial.print(" / "); Serial.println(crc);
   bool result = (crc == refCrc);
   refCrc = crc;
   return result;

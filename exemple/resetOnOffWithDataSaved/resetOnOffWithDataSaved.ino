@@ -1,6 +1,6 @@
 /*************************
    resetOnOffWithDataSaved DeepSleepManger
-   net234 05/02/2021
+   net234 05/02/2021  https://github.com/net234/DeepSleepManager
 
    use reset button as on/off togle switch
    with the standard blinkWithoutDelay demo : (  http://www.arduino.cc/en/Tutorial/BlinkWithoutDelay )
@@ -10,8 +10,6 @@
 */
 
 #include <Arduino.h>
-// trick to trace variables
-#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 
 // instance for  the DeepSleepManager
 #include <DeepSleepManager.h>
@@ -20,17 +18,13 @@ DeepSleepManager MyDeepSleepManager;
 // all variable stored in the structure MySavedData will be restored with a call to DeepSleepManager.restoreStruct(MySavedData)
 // the variables must be basic variable as int, long, float, char[]
 // object variables as String, pointers won't work
-// the total size of the struc must be under 400 Bytes
+// the total size of the struc must be under 450 Bytes
 
-
-
-//struct __attribute__((packed)) myDSMSavedData {
-struct  myDSMSavedData {
+const  uint8_t  max_name_size = 20;
+struct {
   byte aNumber = 1;
-  char aName[30] = "anonymous Arduino";
-};
-
-myDSMSavedData MySavedData;
+  char aName[max_name_size + 1] = "anonymous Arduino";
+}  MySavedData;
 
 // classic code from "BlinkWithoutDelay.ino" examples 02.Digital
 
@@ -59,23 +53,22 @@ void setup() {
     MyDeepSleepManager.permanentDeepSleep();  // go back to deep sleep
   }
 
-  // restore the saved Data from the RTC memory
-
   Serial.println("\r\n\n\n" "resetOnOff resetOnOffWithDataSaved");
+
+  // restore the saved Data from the RTC memory
   MyDeepSleepManager.restoreRTCData(RTC_DATA(MySavedData));
 
-  D_println(sizeof(MySavedData));
-
-
-
-  Serial.print("Hello my name is '"); Serial.print(MySavedData.aName); Serial.println("'");
+  Serial.print("Hello my name is '"); Serial.print(MySavedData.aName); Serial.println("'.");
   Serial.print("This is the "); Serial.print(MySavedData.aNumber); Serial.println("' time that I wake up since I was powered on.");
-  Serial.println("You can change my name if you type 'N mynewname'");
+  Serial.println("You can change my name if you type 'N mynewname'.");
+  Serial.println("You can turn me OFF if you type 'S' or press RST button.");
+
+  // Increment a counter  this counter will be restored after a reset
   MySavedData.aNumber++;
+  // Save the counter in RTC ram
   MyDeepSleepManager.saveRTCData(RTC_DATA(MySavedData));
+  
   Serial.println("I am ON my led BLINK");
-
-
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
@@ -110,20 +103,26 @@ void loop() {
   }
 
   if (Serial.available()) {
+    Serial.setTimeout(100);
+
     char aChar = (char)Serial.read();
     if (aChar == 'N') {
       Serial.println("Change my name : 'N myNewName'");
       delay(10);
       if ( (char)Serial.read() == ' ') {
         String aName = Serial.readString();
-        Serial.println(aName);
         aName.trim();
-        aName = aName.substring(0,30);
-        Serial.print("My new name is '");Serial.print(aName);Serial.println("'");
-        strcpy(MySavedData.aName,aName.c_str());
+        aName = aName.substring(0, max_name_size );
+        Serial.print("My new name is '"); Serial.print(aName); Serial.println("'");
+        strcpy(MySavedData.aName, aName.c_str());
         MyDeepSleepManager.saveRTCData(RTC_DATA(MySavedData));
-        
       }
     }
+    
+    if (aChar == 'S') {
+      Serial.println("S = Going to Sleep ..  press RST to wake up");
+      MyDeepSleepManager.permanentDeepSleep();
+    }
+
   }
 }

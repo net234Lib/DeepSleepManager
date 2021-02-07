@@ -1,7 +1,7 @@
 /*************************************************
  *************************************************
-    DeepSleepManager  Allow BP0 to be user push button and a awake form deep sleep buton while sleeping
-    Copyright 2020  NET234 https://github.com/net234/DeepSleepManager
+    DeepSleepManager  Allow long deep sleep (over 100 Year) and BP0 to be user push button and a awake form deep sleep buton while sleeping
+    Copyright 2020  NET234   https://github.com/net234/DeepSleepManager
 
   This file is part of DeepSleepManager.
 
@@ -20,7 +20,7 @@
 
 
 
-  V1.0  First realease
+  V1.0  First release
 
   V1.0.1
   add permanentDeepSleep()
@@ -28,13 +28,17 @@
   removed #include <ESP8266WiFi.h> from .ccp
   V1.0.3 06/02/2021
   add restoreRTCData and saveRTCData
-  add beter checksum control of data
+  add a crc8 to check RTC data
 
    TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
    DONE V1.0.03: save a user struct in RTC memory
-   TODO: add a checksum to control RTC ram data
+   DONE V1.0.03: add a checksum to control RTC ram data
 
 **********************************************************************************/
+// trick to trace variables
+//#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+
+
 #include <Arduino.h>
 #include <user_interface.h>
 //#include <ESP8266WiFi.h>
@@ -49,11 +53,11 @@
 // REASON_EXCEPTION_RST = 2,            /* exception reset, GPIO status won't change */
 // REASON_SOFT_WDT_RST   = 3,           /* software watch dog reset, GPIO status won't change */
 // REASON_SOFT_RESTART = 4,             /* software restart ,system_restart , GPIO status won't change */
-// REASON_DEEP_SLEEP_AWAKE = 5,         /* wake up from deep-sleep */
+// REASON_DEEP_SLEEP_AWAKE = 5,         /* wake up from standard deep-sleep */
 // REASON_EXT_SYS_RST      = 6          /* external system reset */
 // Specific DeepSleepManager restart reason
 #define REASON_USER_BUTTON  10  /* user button detected */
-#define REASON_DEEP_SLEEP_TERMINATED 11 /* full deep sleep cycle is terminated */
+#define REASON_DEEP_SLEEP_TERMINATED 11 /* long deep sleep cycle is terminated */
 #define REASON_NOT_INITED   19          /* used internaly */
 
 
@@ -75,14 +79,12 @@ class DeepSleepManager {
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
     time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
     void     setActualTimestamp(time_t timestamp = 0);   // Save actual time stamp in case of reset and adjust PowerOn and Boot TimeStamp if needed
-    // helper for save and restore RTC_DATA
+    // helper to save and restore RTC_DATA
     // this is ugly but we need this to get correct sizeof()
 #define  RTC_DATA(x) (uint32_t*)&x,sizeof(x)
     bool     restoreRTCData( uint32_t* data, const uint16_t size);
     bool     saveRTCData( uint32_t* data, const uint16_t size);
-    //#define  CRC_DATA(x) (uint8_t*)&x,sizeof(x)
 
-    //  bool setUserCrc8( uint8_t* data, const uint8_t size, &refCrc );
   private:
     bool setCrc8(const void* data, const uint16_t size, uint8_t &refCrc );
     bool saveRTCmemory();
@@ -92,13 +94,13 @@ class DeepSleepManager {
     //struct __attribute__((packed))
     struct  {
       // all these values are keep in RTC RAM
-      uint8_t   crc8;
-      uint8_t   userDataCrc8;
-      uint16_t  userDataSize;
+      uint8_t   crc8;                 // CRC for savedRTCmemory 
+      uint8_t   userDataCrc8;         // CRC for UserData
+      uint16_t  userDataSize;         // size of UserData (max 450)
 
       uint16_t  bootCounter;          // Number of reboot since power on
-      int16_t   increment;            // increment requested // -1 if it is a wifi restore (max 9H)
-      uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep  (Over 100 year)
+      int16_t   increment;            // increment requested // -1 if it is a wifi restore (max 3H)
+      uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep  (over 100 year)
       time_t    actualTimestamp;      // time stamp restored on next end of deep sleep Should be update in the loop() with setActualTimestamp
       time_t    powerOnTimestamp;     // Timestamp of the power on (set to 0 at power on)
 
