@@ -43,7 +43,6 @@
 #include <user_interface.h>
 //#include <ESP8266WiFi.h>
 
-//#include <Time.h>
 #include <TimeLib.h>
 
 // ESP standard restart reason keywords
@@ -60,6 +59,8 @@
 #define REASON_DEEP_SLEEP_TERMINATED 11 /* long deep sleep cycle is terminated */
 #define REASON_NOT_INITED   19          /* used internaly */
 
+//time_t before 2000 will be considered as elapsed time they will be displayed as :' numberOfDay HH:MM:SS'
+#define NOT_A_DATE_YEAR   2000
 
 
 class DeepSleepManager {
@@ -68,13 +69,13 @@ class DeepSleepManager {
 
   public:
     uint8_t  getRstReason(const int16_t buttonPin = -1 );          // return the reason of the deepsleep awake (adjusted reason)
-    void     startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment = 0, const uint16_t offset = 0 ); // start a deepSleepMode with   default increment 3 hours
-    void     permanentDeepSleep();
-    void     continueDeepSleep();
-    void     WiFiUnlock();                                        // arm a reset to restore WiFi back
+    void     startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment = 0, const uint16_t offset = 0 ); // start a deepSleepMode for a long time with   default increment 6 hours
+    void     permanentDeepSleep();   // Activate DeepSleep Forever
+    void     continueDeepSleep();    // Return in deepSleep to terminate an interupted deepsleep
+    void     WiFiUnlock();           // arm a reset to restore WiFi back
     bool     WiFiLocked;            // true if wifi is locked (awake from a deep sleep)
     uint16_t getBootCounter();      // Number of reboot since power on
-    uint32_t getRemainingTime();    // Number of second remaining to terminate deep sleep
+    uint32_t getRemainingTime();    // Number of second remaining to terminate long deep sleep
     time_t   getBootTimestamp();    // Timestamp of the last boot time
     time_t   getPowerOnTimestamp(); // Timestamp of the power on (set to 0 at power on)
     time_t   getActualTimestamp();  // Timestamp saved in RTC memory (set to 0 at power on)
@@ -84,27 +85,30 @@ class DeepSleepManager {
 #define  RTC_DATA(x) (uint32_t*)&x,sizeof(x)
     bool     restoreRTCData( uint32_t* data, const uint16_t size);
     bool     saveRTCData( uint32_t* data, const uint16_t size);
-
+    String   getTxtRstReason();
   private:
     bool setCrc8(const void* data, const uint16_t size, uint8_t &refCrc );
     bool saveRTCmemory();
+    //const    uint8_t structSizeInt32 = (sizeof(savedRTCmemory) + 3) / 4;
     uint8_t  rstReason = REASON_NOT_INITED;    // reason of restart adjusted from ESP.getResetInfoPtr();
     time_t   bootTimestamp;
-    const    uint8_t structSizeInt32 = (sizeof(savedRTCmemory) + 3) / 4;
+    
     //struct __attribute__((packed))
     struct  {
       // all these values are keep in RTC RAM
-      uint8_t   crc8;                 // CRC for savedRTCmemory 
+      uint8_t   crc8;                 // CRC for savedRTCmemory
       uint8_t   userDataCrc8;         // CRC for UserData
       uint16_t  userDataSize;         // size of UserData (max 450)
-
       uint16_t  bootCounter;          // Number of reboot since power on
       int16_t   increment;            // increment requested // -1 if it is a wifi restore (max 3H)
       uint32_t  remainingTime;        // Number of second remaining to terminate deep sleep  (over 100 year)
       time_t    actualTimestamp;      // time stamp restored on next end of deep sleep Should be update in the loop() with setActualTimestamp
       time_t    powerOnTimestamp;     // Timestamp of the power on (set to 0 at power on)
-
-    } savedRTCmemory;
+      int32_t   correction;           // microsec/sec correction
+      uint32_t  startTimestamp;       // timeStamp of the last deepSleep
+      uint32_t  sleepTime;            // duration of the last deepSleep
+      int32_t  uncorrectedTime;      // cumulative time of deepSleep;
+      } savedRTCmemory;
 
 
 };
