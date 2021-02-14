@@ -42,8 +42,8 @@ bool bp0Status;
 
 void setup() {
   // Setup BP0
-  pinMode( BP0, INPUT_PULLUP);
-
+  //pinMode( BP0, INPUT_PULLUP);
+   pinMode( BP0, INPUT);
   if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
 
     // here we start serial to show that we are awake with a 'regular' DEEP_SLEEP_AWAKE
@@ -74,7 +74,7 @@ void setup() {
 
 
   Serial.print("MyDeepSleepManager.rstReason = ");
-  Serial.print(MyDeepSleepManager.getTxtRstReason());
+  Serial.println(MyDeepSleepManager.getTxtRstReason());
   Serial.print("MyDeepSleepManager.WiFiLocked = ");
   Serial.println(MyDeepSleepManager.WiFiLocked);
   Serial.print("MyDeepSleepManager.bootCounter = ");
@@ -134,7 +134,7 @@ void loop() {
         Serial.print(F("Connected to Wifi : "));
         Serial.println(WiFi.SSID());
         setSyncProvider(getNtpTime);
-        setSyncInterval(5 * 60);
+        setSyncInterval(60 * 60);
       }
     } else {
       wifiConnected = false;
@@ -174,6 +174,11 @@ void loop() {
       MyDeepSleepManager.startDeepSleep(4 * 60 * 60); // start a deepSleepMode with 1 hours incremental
     }
 
+   if (aChar == '0') {
+      Serial.println(F("-- start DeepSleep for 10 Second no inc"));
+      Serial.println(F("<-- GO"));
+      MyDeepSleepManager.startDeepSleep( 60 , 10 );
+    }
 
 
     if (aChar == 'T') {

@@ -56,7 +56,8 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   rstReason = (resetInfoPtr->reason);
   // adjust ESP rstReason if bp is down or cold boot
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
-    savedRTCmemory.actualTimestamp += savedRTCmemory.increment;
+  //  savedRTCmemory.actualTimestamp += savedRTCmemory.increment;  // restored time will be false
+    
     if (bpStatus == LOW ) rstReason = REASON_USER_BUTTON;
   }
 
@@ -74,7 +75,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.remainingTime = 0;
     savedRTCmemory.actualTimestamp = 0;
     savedRTCmemory.powerOnTimestamp = 0;
-    savedRTCmemory.correction = 0;  // 1.004
+    savedRTCmemory.correction = 25000;  //ok 20mn
     savedRTCmemory.startTimestamp = 0;
     savedRTCmemory.sleepTime = 0;
     savedRTCmemory.uncorrectedTime = 0;
@@ -94,6 +95,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.increment = 0;
   }
   bootTimestamp = savedRTCmemory.actualTimestamp;
+  if (rstReason != REASON_DEEP_SLEEP_AWAKE) savedRTCmemory.uncorrectedTime = 0;   // cancel correction deep sleep was interupted
   if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 ) {
     rstReason = REASON_DEEP_SLEEP_TERMINATED;
     savedRTCmemory.uncorrectedTime += savedRTCmemory.sleepTime;
@@ -120,7 +122,11 @@ void DeepSleepManager::permanentDeepSleep() {
   saveRTCmemory();
   ESP.deepSleep(0, RF_DEFAULT);
 }
-const int32_t adjust = 149300;
+//const int32_t adjust = 150000;//149300; +130
+//const int32_t adjust = 140000; +140
+//const int32_t adjust = 300000; //+.10
+//const int32_t adjust = 350000; // +.010
+const int32_t adjust = 500000; //
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.actualTimestamp = now();
   savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
@@ -148,11 +154,11 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
 
 
   uint64_t microsDelay = 1000000LL * nextIncrement;
-  Serial.print("microsDelay  = ");
+  Serial.print("microsDelay=");
   Serial.print(float(microsDelay));
-  Serial.print(" , ");
-  Serial.print(float(savedRTCmemory.correction));
-  Serial.print(" , ");
+  Serial.print(", corr=");
+  Serial.print(savedRTCmemory.correction);
+  Serial.print(", micro=");
   microsDelay += savedRTCmemory.correction * nextIncrement;  // 1.004;
   Serial.print(float(microsDelay));
   Serial.println(".");
@@ -189,13 +195,13 @@ void DeepSleepManager::continueDeepSleep() {
     nextIncrement = savedRTCmemory.remainingTime;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
-  savedRTCmemory.actualTimestamp = now() + nextIncrement;
+  savedRTCmemory.actualTimestamp += nextIncrement;
   saveRTCmemory();
   uint64_t microsDelay = 1000000LL * nextIncrement;
   microsDelay += savedRTCmemory.correction * nextIncrement;  // 1.004;
   Serial.print("microsDelay  = ");
   Serial.print(float(microsDelay));
-  Serial.print(" , ");
+  Serial.print(", micros=");
   Serial.print(micros());
   Serial.println(".");
 
@@ -246,11 +252,13 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
     bootTimestamp -= timestamp - savedRTCmemory.actualTimestamp;
   }
   int16_t delta = timestamp - savedRTCmemory.actualTimestamp;
+  if (delta == 0 ) return;
   if (delta != 1) {
     Serial.print("DSM: delta = ");
     Serial.println(delta);
   }
-  if (savedRTCmemory.uncorrectedTime > 0  && abs(delta) > 1) {
+  delta--;
+  if (savedRTCmemory.uncorrectedTime > 0  && (delta != 0)) {
     D_println(savedRTCmemory.uncorrectedTime);
     int32_t corr = 1000000L * delta;
     D_println(corr);
