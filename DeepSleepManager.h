@@ -33,6 +33,8 @@
    TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
    DONE V1.0.03: save a user struct in RTC memory
    DONE V1.0.03: add a checksum to control RTC ram data
+   TOTO ameliorer getTxtRstReason(BP_0);
+
 
 **********************************************************************************/
 // trick to trace variables
