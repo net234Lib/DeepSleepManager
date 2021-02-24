@@ -11,7 +11,12 @@
 */
 
 #include <Arduino.h>
+#if defined(SAMD_NANO_33_IOT)
+#include <WiFiNINA.h>
+#elif defined(ESP8266)
 #include <ESP8266WiFi.h>
+#endif
+
 
 #define APP_VERSION   "veryLongDeepSleep"
 
