@@ -75,8 +75,8 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.remainingTime = 0;
     savedRTCmemory.actualTimestamp = 0;
     savedRTCmemory.powerOnTimestamp = 0;
-    //savedRTCmemory.correction = 35972;  //ok 20mn 55000 5m   35972 4H
-    savedRTCmemory.correction = 35972;  //35972 4H
+    savedRTCmemory.correction = 50000;  //ok  55000 5m   
+    //savedRTCmemory.correction = 35972;  //35972 4H
     savedRTCmemory.startTimestamp = 0;
     savedRTCmemory.sleepTime = 0;
     savedRTCmemory.uncorrectedTime = 0;
@@ -123,13 +123,32 @@ void DeepSleepManager::permanentDeepSleep() {
   saveRTCmemory();
   ESP.deepSleep(0, RF_DEFAULT);
 }
+
+
+
+
+
+void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t increment) {
+  tmElements_t tm;
+  time_t tmNow = now();
+  breakTime(tmNow, tm);
+  tm.Hour = pHour;
+  tm.Minute = pMinute;
+  tm.Second = pSecond;
+  time_t tmUntil = makeTime(tm);
+  if (tmUntil < tmNow)  {
+    tmUntil += 24 * 3600;
+  }
+  tmUntil -= tmNow;
+  startDeepSleep(tmUntil, increment);
+}
 //const int32_t adjust = 150000;//149300; +130
 //const int32_t adjust = 140000; +140
 //const int32_t adjust = 300000; //+.10
 //const int32_t adjust = 350000; // +.010
-//const int32_t adjust = 500000; //  -.01  corr=27382
-const int32_t adjust   = 0; //    corr = 2000000
-//const int32_t adjust   = 500000; //    corr = 2000000
+//const int32_t adjust = 550000; //  -.01  corr=27382
+//const int32_t adjust   = 0; //    corr = 2000000
+const int32_t adjust   = 350000; //    corr = 2000000
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.actualTimestamp = now();
   savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
@@ -263,7 +282,7 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
   delta--;
   if ( savedRTCmemory.uncorrectedTime > 0 && timeStatus() == timeSet) {
     D_println(savedRTCmemory.uncorrectedTime);
-    if (delta != 0 && savedRTCmemory.uncorrectedTime > 100) {  // no correction on less than 100 sec 
+    if (delta != 0 && savedRTCmemory.uncorrectedTime > 100 && abs(delta) < 300 ) {  // no correction on less than 100 sec or more than +- 5 min
       int32_t corr = 1000000L * delta;
       D_println(corr);
       corr = 1000000L * delta / savedRTCmemory.uncorrectedTime;

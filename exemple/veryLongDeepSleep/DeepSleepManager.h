@@ -72,6 +72,7 @@ class DeepSleepManager {
   public:
     uint8_t  getRstReason(const int16_t buttonPin = -1 );          // return the reason of the deepsleep awake (adjusted reason)
     void     startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment = 0, const uint16_t offset = 0 ); // start a deepSleepMode for a long time with   default increment 6 hours
+    void     deepSleepUntil(const uint8_t hour, const uint8_t minute, const uint8_t second,const uint16_t increment = 0);
     void     permanentDeepSleep();   // Activate DeepSleep Forever
     void     continueDeepSleep();    // Return in deepSleep to terminate an interupted deepsleep
     void     WiFiUnlock();           // arm a reset to restore WiFi back

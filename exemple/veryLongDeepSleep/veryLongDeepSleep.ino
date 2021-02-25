@@ -144,6 +144,7 @@ void loop() {
         setSyncProvider(getWebTime);
         //Le croquis utilise 293260 octets (28%) de l'espace de stockage de programmes.
         //Les variables globales utilisent 27804 octets (33%) de mémoire dynamique
+
         setSyncInterval(60 * 10);
       }
     } else {
@@ -161,6 +162,23 @@ void loop() {
 
   if (Serial.available()) {
     char aChar = (char)Serial.read();
+
+    if (aChar == 'A') {
+      Serial.println(F("-- start DeepSleep Until 23:00  increment 3 hours"));
+      Serial.println(F("   each press on RESET will skip 3 hours"));
+      Serial.print(F("<-- GO ")); Serial.println(niceDisplayTime(now()));
+      MyDeepSleepManager.deepSleepUntil(23,0,0); // start a deepSleepMode with 1 hours incremental
+    }
+
+    if (aChar == 'B') {
+      Serial.println(F("-- start DeepSleep Until 08:00  increment 3 hours"));
+      Serial.println(F("   each press on RESET will skip 3 hours"));
+      Serial.print(F("<-- GO ")); Serial.println(niceDisplayTime(now()));
+      MyDeepSleepManager.deepSleepUntil(8,0,0); // start a deepSleepMode with 1 hours incremental
+    }
+
+
+
     if (aChar == 'L') {
       Serial.println(F("-- start DeepSleep for 12 Hours"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
