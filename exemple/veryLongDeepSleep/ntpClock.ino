@@ -37,7 +37,7 @@ time_t getNtpTime()
   while (millis() - beginWait < 1500) {
     int size = Udp.parsePacket();
     if (size >= NTP_PACKET_SIZE) {
-      Serial.println("Receive NTP Response");
+      Serial.print("Receive NTP Response ");
       Udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer
       unsigned long secsSince1900;
       Udp.stop();
@@ -47,6 +47,8 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[42] << 8;
       secsSince1900 |= (unsigned long)packetBuffer[43];
        long time = secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
+       Serial.println(niceDisplayTime(time)); // every minute
+
    //   Serial.print("Delta time ");
    //   Serial.println((long)time-MyDeepSleepManager.getActualTimestamp());
       return time;

@@ -12,6 +12,7 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
+#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 
 #define APP_VERSION   "veryLongDeepSleep"
 
@@ -43,7 +44,7 @@ bool bp0Status;
 void setup() {
   // Setup BP0
   //pinMode( BP0, INPUT_PULLUP);
-   pinMode( BP0, INPUT);
+  pinMode( BP0, INPUT);
   if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
 
     // here we start serial to show that we are awake with a 'regular' DEEP_SLEEP_AWAKE
@@ -59,7 +60,7 @@ void setup() {
     MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
   }
   // we are here because longDeepSleep is fully elapsed or a reset with BP0 append
-  // if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will to a restart to unlock wifi
+  // if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will do a restart to unlock wifi
   if ( MyDeepSleepManager.WiFiLocked) {
     // "-->Restore WiFi"
     MyDeepSleepManager.WiFiUnlock();
@@ -110,6 +111,7 @@ void setup() {
   Serial.println(F("Type T for DeepSleep 1 Minute"));
   Serial.println(F("Type U for DeepSleep 5 Minute"));
   Serial.println(F("Type V for DeepSleep 1 Hour"));
+  Serial.println(F("Type W for setup wifi credential (it will stay in Wifi flash even if you power down)"));
   Serial.println(F("RESET only will just skip 1 increment in the deep sleep time"));
   Serial.println(F("press BP0  to full abort DeepSleep"));
   Serial.println(F("press only RST to skip 1 DeepSleep increment"));
@@ -124,8 +126,9 @@ void loop() {
   uint32_t lastnow = now();
   if ( lastnow != MyDeepSleepManager.getActualTimestamp() ) {
     MyDeepSleepManager.setActualTimestamp(lastnow);
-    if (second() == 0) Serial.println(niceDisplayTime(lastnow)); // every minute
+
     // this will append every seconds
+    if (second() == 0) Serial.println(niceDisplayTime(lastnow)); // every minute
 
     // If we are not connected we warn the user every 30 seconds that we need to update credential
     if ( WiFi.status() == WL_CONNECTED ) {
@@ -133,13 +136,20 @@ void loop() {
         wifiConnected = true;
         Serial.print(F("Connected to Wifi : "));
         Serial.println(WiFi.SSID());
-        setSyncProvider(getNtpTime);
-        setSyncInterval(60 * 60);
+
+        //setSyncProvider(getNtpTime);
+        //Le croquis utilise 280240 octets (26%) de l'espace de stockage de programmes.
+        // Les variables globales utilisent 27836 octets (33%) de mémoire dynamique,
+
+        setSyncProvider(getWebTime);
+        //Le croquis utilise 293260 octets (28%) de l'espace de stockage de programmes.
+        //Les variables globales utilisent 27804 octets (33%) de mémoire dynamique
+        setSyncInterval(60 * 10);
       }
     } else {
       wifiConnected = false;
       // every 30 sec
-      if ( now() % 15 == 10 ) {
+      if ( now() % 30 == 20 ) {
         Serial.print(F("device not connected to local WiFi : "));
         Serial.println(WiFi.SSID());
         Serial.println(F("type 'W' to adjust WiFi credential"));
@@ -151,15 +161,15 @@ void loop() {
 
   if (Serial.available()) {
     char aChar = (char)Serial.read();
-   if (aChar == 'L') {
+    if (aChar == 'L') {
       Serial.println(F("-- start DeepSleep for 12 Hours"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep(12 * 60 * 60); // start a deepSleepMode with 1 hours incremental
     }
 
-    
-    
+
+
     if (aChar == 'S') {
       Serial.println(F("-- start DeepSleep for 4 Hours"));
       Serial.println(F("   each press on RESET will skip 1 hours"));
@@ -167,17 +177,17 @@ void loop() {
       MyDeepSleepManager.startDeepSleep(4 * 60 * 60, 60 * 60); // start a deepSleepMode with 1 hours incremental
     }
 
-   if (aChar == 's') {
+    if (aChar == 's') {
       Serial.println(F("-- start DeepSleep for 4 Hours max incremental"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep(4 * 60 * 60); // start a deepSleepMode with 1 hours incremental
     }
 
-   if (aChar == '0') {
+    if (aChar == '0') {
       Serial.println(F("-- start DeepSleep for 10 Second no inc"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 60 , 10 );
+      MyDeepSleepManager.startDeepSleep( 10 );
     }
 
 
@@ -194,18 +204,18 @@ void loop() {
     }
 
 
-   if (aChar == '1') {
+    if (aChar == '1') {
       Serial.println(F("-- start DeepSleep for 10 Minute with no incremental"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 10 * 60 );
     }
 
-   if (aChar == '2') {
+    if (aChar == '2') {
       Serial.println(F("-- start DeepSleep fof 20 Minute with no incremental"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 20 * 60 );
     }
-   if (aChar == '3') {
+    if (aChar == '3') {
       Serial.println(F("-- start DeepSleep for 30 Minute with no incremental"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 30 * 60 );
@@ -231,7 +241,7 @@ void loop() {
       MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
     }
 
-   if (aChar == 'v') {
+    if (aChar == 'v') {
       Serial.println(F("-- start DeepSleep for 1 Hour with no incremental"));
       Serial.println(F("<-- GO"));
       MyDeepSleepManager.startDeepSleep( 60 * 60 ); // start a deepSleepMode with 15 sec

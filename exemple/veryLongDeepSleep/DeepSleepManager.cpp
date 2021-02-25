@@ -75,7 +75,8 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.remainingTime = 0;
     savedRTCmemory.actualTimestamp = 0;
     savedRTCmemory.powerOnTimestamp = 0;
-    savedRTCmemory.correction = 25000;  //ok 20mn
+    //savedRTCmemory.correction = 35972;  //ok 20mn 55000 5m   35972 4H
+    savedRTCmemory.correction = 35972;  //35972 4H
     savedRTCmemory.startTimestamp = 0;
     savedRTCmemory.sleepTime = 0;
     savedRTCmemory.uncorrectedTime = 0;
@@ -127,9 +128,8 @@ void DeepSleepManager::permanentDeepSleep() {
 //const int32_t adjust = 300000; //+.10
 //const int32_t adjust = 350000; // +.010
 //const int32_t adjust = 500000; //  -.01  corr=27382
-//const int32_t adjust   = 0; //    corr = 2000000
-const int32_t adjust   = zz1350000; //    corr = 2000000
-zz
+const int32_t adjust   = 0; //    corr = 2000000
+//const int32_t adjust   = 500000; //    corr = 2000000
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.actualTimestamp = now();
   savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
@@ -166,7 +166,7 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
   Serial.print(float(microsDelay));
   Serial.println(".");
   //if (nextIncrement > 0) ESP.deepSleep(microsDelay - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
-  if (nextIncrement > 0) ESP.deepSleep(microsDelay , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  if (nextIncrement > 0) ESP.deepSleep(microsDelay - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
   // if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 
 
@@ -261,9 +261,9 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
     Serial.println(delta);
   }
   delta--;
-  if ( savedRTCmemory.uncorrectedTime > 0 ) {
+  if ( savedRTCmemory.uncorrectedTime > 0 && timeStatus() == timeSet) {
     D_println(savedRTCmemory.uncorrectedTime);
-    if (delta != 0) {
+    if (delta != 0 && savedRTCmemory.uncorrectedTime > 100) {  // no correction on less than 100 sec 
       int32_t corr = 1000000L * delta;
       D_println(corr);
       corr = 1000000L * delta / savedRTCmemory.uncorrectedTime;
