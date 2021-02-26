@@ -325,11 +325,11 @@ void loop() {
         logDataCSV(F("tried an email"));
       }
       //logDataCSV(F("-- start DeepSleep again for 1 Min with a 10 sec incremental offset 2"));
-      logDataCSV(F("-- start DeepSleep with 10 minutes mesures mail at 22H30"));
+      logDataCSV(F("-- start DeepSleep with 10 minutes mesures mail at 23H45"));
       logDataCSV("Millsec was " + String(millis()));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.startDeepSleep( 60, 10, 2 );
-      MyDeepSleepManager.deepSleepUntil( 22, 0, 0, 10 * 60 );
+      MyDeepSleepManager.deepSleepUntil( 23, 45, 0, 10 * 60 );
     } while (false);
 
   }

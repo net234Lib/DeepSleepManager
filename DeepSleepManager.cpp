@@ -129,7 +129,7 @@ void DeepSleepManager::permanentDeepSleep() {
 
 
 
-void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t increment) {
+void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t pIncrement) {
   tmElements_t tm;
   time_t tmNow = now();
   breakTime(tmNow, tm);
@@ -141,7 +141,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
     tmUntil += 24 * 3600;
   }
   tmUntil -= tmNow;
-  startDeepSleep(tmUntil, increment);
+  startDeepSleep(tmUntil, pIncrement);
 }
 //const int32_t adjust = 150000;//149300; +130
 //const int32_t adjust = 140000; +140
