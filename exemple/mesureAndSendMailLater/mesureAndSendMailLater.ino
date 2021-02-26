@@ -78,12 +78,12 @@
 #define APP_VERSION   "mesureAndSendMailLater B02  node00"
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
 #define HTTP_SERVER   "www.free.fr"        // for clock syncr replace with your FAI http server
-#define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server 
-#define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
-#define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
+#define SMTP_SERVER   "smtp.free.fr"
+//#define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server
+#define SMTP_LOGIN    "" //PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
+#define SMTP_PASS     "" //PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
 #define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
 #define DATA_FILENAME "/data.csv"
-
 // to check batterie
 ADC_MODE(ADC_VCC);
 
@@ -329,7 +329,7 @@ void loop() {
       logDataCSV("Millsec was " + String(millis()));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.startDeepSleep( 60, 10, 2 );
-      MyDeepSleepManager.deepSleepUntil( 22,0,0, 10 * 60 );
+      MyDeepSleepManager.deepSleepUntil( 22, 0, 0, 10 * 60 );
     } while (false);
 
   }
@@ -512,39 +512,55 @@ bool sendDataCsvTo(const String sendto)  {
   WiFiClient tcp;  //Declare an object of Wificlass Client to make a TCP connection
   String aLine;    // to get answer of SMTP
   // Try to find a valid smtp
-   if ( !tcp.connect(SMTP_SERVER, 25) ) {
+  if ( !tcp.connect(SMTP_SERVER, 25) ) {
     Serial.println("unable to connect with " SMTP_SERVER ":25" );
     return false;
   }
 
-  bool valideSmtp = false;
+
+  bool mailOk = false;
   do {
-     
-    Serial.println("connected with " SMTP_SERVER ":25" );
     aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("220 "))  break;  //  not good answer
-    Serial.println( "HELO arduino" );
-
-    tcp.print("HELO arduino \r\n");
+    if ( aLine.toInt() != 220 )  break;  //  not good answer
+    Serial.println(F("HELO arduino"));
+    tcp.print(F("HELO arduino \r\n")); // EHLO send too much line
     aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+    if ( aLine.toInt() != 250 )  break;  //  not good answer
+    // autentification
+    if (SMTP_LOGIN != "") {
+      Serial.println(F("AUTH LOGIN"));
+      tcp.print(F("AUTH LOGIN \r\n"));
+      aLine = tcp.readStringUntil('\n');
+      if (aLine.toInt() != 334 )  break;  //  not good answer
 
-    Serial.println( "MAIL FROM: " SEND_FROM );
-    tcp.print("MAIL FROM: " SEND_FROM "\r\n");
+      //Serial.println(F("SEND LOGIN"));
+      tcp.print(F(SMTP_LOGIN "\r\n"));
+      aLine = tcp.readStringUntil('\n');
+      if (aLine.toInt() != 334 )  break;  //  not good answer
+
+      //Serial.println(F("SEND PASS"));
+      tcp.print(F(SMTP_PASS "\r\n"));
+      aLine = tcp.readStringUntil('\n');
+      if (aLine.toInt() != 235 )  break;  //  not good answer
+    }
+
+
+    Serial.println(F("MAIL FROM: " SEND_FROM));
+    tcp.print(F("MAIL FROM: " SEND_FROM "\r\n"));
     aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+    if ( aLine.toInt() != 250 )  break;  //  not good answer
 
-    Serial.println( "RCPT TO: " + sendto );
+    Serial.println("RCPT TO: " + sendto);
     tcp.print("RCPT TO: " + sendto + "\r\n");
     aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("250 "))  break;  //  not goog answer
+    if ( aLine.toInt() != 250 )  break;  //  not good answer
 
-    Serial.println( "DATA" );
-    tcp.print("DATA\r\n");
+    Serial.println(F("DATA"));
+    tcp.print(F("DATA\r\n"));
     aLine = tcp.readStringUntil('\n');
-    if (!aLine.startsWith("354 "))  break;  //  not goog answer
+    if ( aLine.toInt() != 354 )  break;  //  not goog answer
 
-    Serial.println( "Mail itself" );
+    //Serial.println( "Mail itself" );
     tcp.print("Subject: test mail from " APP_VERSION "\r\n");
     tcp.print("\r\n");  // end of header
     // body
@@ -552,7 +568,7 @@ bool sendDataCsvTo(const String sendto)  {
     //    tcp.print("destine a valider la connection\r\n");
     //    tcp.print("au serveur SMTP\r\n");
     //    tcp.print("\r\n");
-    tcp.print(F("===== data.csv ==\r\n"));
+    tcp.print(F(" == == = data.csv == \r\n"));
     File f = MyFS.open(DATA_FILENAME, "r");
     if (f) {
       while (f.available()) {
@@ -564,88 +580,20 @@ bool sendDataCsvTo(const String sendto)  {
         tcp.print('\t');
         tcp.print(aLine);
         tcp.print("\r\n");
-
       }
+      f.close();
     }
 
-    Serial.println(F("unable to connect with any smtp server"));
+    tcp.print(F(" == Eof data.csv == \r\n"));
+
+    // end of body
+    tcp.print("\r\n.\r\n");
+    aLine = tcp.readStringUntil('\n');
+    if ( aLine.toInt() != 250 )  break;  //  not goog answer
+
+    mailOk = true;
     break;
   } while (false);
-
-  bool mailOk = false;
-  if (valideSmtp) do {
-      Serial.println(F("HELO arduino"));
-      tcp.print(F("HELO arduino \r\n")); // EHLO send too much line
-      aLine = tcp.readStringUntil('\n');
-      if ( aLine.toInt() != 250 )  break;  //  not good answer
-      // autentification
-      if (SMTP_LOGIN != "") {
-        Serial.println(F("AUTH LOGIN"));
-        tcp.print(F("AUTH LOGIN \r\n"));
-        aLine = tcp.readStringUntil('\n');
-        if (aLine.toInt() != 334 )  break;  //  not good answer
-
-        //Serial.println(F("SEND LOGIN"));
-        tcp.print(F(SMTP_LOGIN "\r\n"));
-        aLine = tcp.readStringUntil('\n');
-        if (aLine.toInt() != 334 )  break;  //  not good answer
-
-        //Serial.println(F("SEND PASS"));
-        tcp.print(F(SMTP_PASS "\r\n"));
-        aLine = tcp.readStringUntil('\n');
-        if (aLine.toInt() != 235 )  break;  //  not good answer
-      }
-
-
-      Serial.println(F("MAIL FROM: " SEND_FROM));
-      tcp.print(F("MAIL FROM: " SEND_FROM "\r\n"));
-      aLine = tcp.readStringUntil('\n');
-      if ( aLine.toInt() != 250 )  break;  //  not good answer
-
-      Serial.println("RCPT TO: " + sendto);
-      tcp.print("RCPT TO: " + sendto + "\r\n");
-      aLine = tcp.readStringUntil('\n');
-      if ( aLine.toInt() != 250 )  break;  //  not good answer
-
-      Serial.println(F("DATA"));
-      tcp.print(F("DATA\r\n"));
-      aLine = tcp.readStringUntil('\n');
-      if ( aLine.toInt() != 354 )  break;  //  not goog answer
-
-      //Serial.println( "Mail itself" );
-      tcp.print("Subject: test mail from " APP_VERSION "\r\n");
-      tcp.print("\r\n");  // end of header
-      // body
-      //    tcp.print("ceci est un mail de test\r\n");
-      //    tcp.print("destine a valider la connection\r\n");
-      //    tcp.print("au serveur SMTP\r\n");
-      //    tcp.print("\r\n");
-      tcp.print(F(" == == = data.csv == \r\n"));
-      File f = MyFS.open(DATA_FILENAME, "r");
-      if (f) {
-        while (f.available()) {
-          String aTime = f.readStringUntil('\t');
-          String aLine = f.readStringUntil('\n');
-          tcp.print(niceDisplayTime(aTime.toInt()));
-          tcp.print('\t');
-          tcp.print(aTime);
-          tcp.print('\t');
-          tcp.print(aLine);
-          tcp.print("\r\n");
-        }
-        f.close();
-      }
-
-      tcp.print(F(" == Eof data.csv == \r\n"));
-
-      // end of body
-      tcp.print("\r\n.\r\n");
-      aLine = tcp.readStringUntil('\n');
-      if ( aLine.toInt() != 250 )  break;  //  not goog answer
-
-      mailOk = true;
-      break;
-    } while (false);
   D_println(mailOk);
   D_println(aLine);
   Serial.println( "quit" );
