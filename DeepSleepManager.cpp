@@ -57,7 +57,6 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   // adjust ESP rstReason if bp is down or cold boot
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
     //  savedRTCmemory.actualTimestamp += savedRTCmemory.increment;  // restored time will be false
-
     if (bpStatus == LOW ) rstReason = REASON_USER_BUTTON;
   }
 
@@ -126,9 +125,6 @@ void DeepSleepManager::permanentDeepSleep() {
 }
 
 
-
-
-
 void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t pIncrement, uint16_t pOffset) {
   tmElements_t tm;
   time_t tmNow = now();
@@ -143,6 +139,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
   tmUntil -= tmNow;
   startDeepSleep(tmUntil, pIncrement,pOffset);
 }
+
 //const int32_t adjust = 150000;//149300; +130
 //const int32_t adjust = 140000; +140
 //const int32_t adjust = 300000; //+.10
@@ -151,6 +148,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
 //const int32_t adjust   = 0; //    corr = 2000000
 const int32_t adjust   = 900000LL; //    corr = 2000000
 //const int32_t adjust   = 328929;
+
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.actualTimestamp = now();
   savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
@@ -187,7 +185,7 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
   Serial.print(float(microsDelay));
   Serial.println(".");
   //if (nextIncrement > 0) ESP.deepSleep(microsDelay - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
-  if (nextIncrement > 0) ESP.deepSleep(microsDelay - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  if (nextIncrement > 0) ESP.deepSleep(microsDelay  - adjust , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
   // if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 
 
