@@ -1,0 +1,5 @@
+#define  PRIVATE_SEND_TO       "pierre@musictrad.org"
+#define  PRIVATE_SEND_FROM     "nodemcu00@frdev.com"
+#define  PRIVATE_SMTP_SERVER   "mail.gandi.net"
+#define  PRIVATE_SMTP_LOGIN    "bWFyaWduYW5AZnJkZXYuY29t" 
+#define  PRIVATE_SMTP_PASS     "TWFyMWduYW5RdWluemUxNQ==" 

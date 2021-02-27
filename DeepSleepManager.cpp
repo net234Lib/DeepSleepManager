@@ -27,7 +27,7 @@
 
 
 #include "DeepSleepManager.h"
-
+#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 
 //My WiFi won't reconnect after deep sleep using ``WAKE_RF_DISABLED``
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -56,6 +56,7 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
   rstReason = (resetInfoPtr->reason);
   // adjust ESP rstReason if bp is down or cold boot
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE) {
+    //  savedRTCmemory.actualTimestamp += savedRTCmemory.increment;  // restored time will be false
     if (bpStatus == LOW ) rstReason = REASON_USER_BUTTON;
   }
 
@@ -73,6 +74,13 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.remainingTime = 0;
     savedRTCmemory.actualTimestamp = 0;
     savedRTCmemory.powerOnTimestamp = 0;
+    //savedRTCmemory.correction = 50000;  //ok  55000 5m
+    //savedRTCmemory.correction = 35972;  //35972 4H
+    savedRTCmemory.correction = 28929;  //28929 7H
+    savedRTCmemory.startTimestamp = 0;
+    savedRTCmemory.sleepTime = 0;
+    savedRTCmemory.uncorrectedTime = 0;
+
 
     rstReason = REASON_DEFAULT_RST;  // this append only after a full power down
   }
@@ -88,7 +96,11 @@ uint8_t DeepSleepManager::getRstReason(const int16_t buttonPin) {
     savedRTCmemory.increment = 0;
   }
   bootTimestamp = savedRTCmemory.actualTimestamp;
-  if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 )  rstReason = REASON_DEEP_SLEEP_TERMINATED;
+  if (rstReason != REASON_DEEP_SLEEP_AWAKE) savedRTCmemory.uncorrectedTime = 0;   // cancel correction deep sleep was interupted
+  if (rstReason == REASON_DEEP_SLEEP_AWAKE && savedRTCmemory.remainingTime == 0 ) {
+    rstReason = REASON_DEEP_SLEEP_TERMINATED;
+    savedRTCmemory.uncorrectedTime += savedRTCmemory.sleepTime;
+  }
   saveRTCmemory();
   //system_rtc_mem_write(10, &savedRTCmemory, sizeof(savedRTCmemory));
   return (rstReason);
@@ -112,12 +124,41 @@ void DeepSleepManager::permanentDeepSleep() {
   ESP.deepSleep(0, RF_DEFAULT);
 }
 
+
+void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t pIncrement, uint16_t pOffset) {
+  tmElements_t tm;
+  time_t tmNow = now();
+  breakTime(tmNow, tm);
+  tm.Hour = pHour;
+  tm.Minute = pMinute;
+  tm.Second = pSecond;
+  time_t tmUntil = makeTime(tm);
+  if (tmUntil < tmNow)  {
+    tmUntil += 24 * 3600;
+  }
+  tmUntil -= tmNow;
+  startDeepSleep(tmUntil, pIncrement,pOffset);
+}
+
+//const int32_t adjust = 150000;//149300; +130
+//const int32_t adjust = 140000; +140
+//const int32_t adjust = 300000; //+.10
+//const int32_t adjust = 350000; // +.010
+//const int32_t adjust = 550000; //  -.01  corr=27382
+//const int32_t adjust   = 0; //    corr = 2000000
+const int32_t adjust   = 900000LL; //    corr = 2000000
+//const int32_t adjust   = 328929;
+
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
-  savedRTCmemory.remainingTime = sleepTimeSeconds;
   savedRTCmemory.actualTimestamp = now();
+  savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
+  savedRTCmemory.sleepTime = sleepTimeSeconds;
+  savedRTCmemory.remainingTime = sleepTimeSeconds;
   uint16_t nextIncrement = increment;
   if (nextIncrement == 0) nextIncrement = 3 * 60 * 60;
   savedRTCmemory.increment = nextIncrement;
+
+
   if (savedRTCmemory.remainingTime <= nextIncrement) {
     nextIncrement = savedRTCmemory.remainingTime;
   }
@@ -126,17 +167,46 @@ void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uin
     if ( nextIncrement <= 0 ) nextIncrement = 1;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
+
+
   //Serial.print("sizeof savedRTCmemory=");
   //Serial.println(sizeof savedRTCmemory);  //20
-  int32_t adjust = 149300;
-  uint32_t milli = millis();
-  if (offset > 0 && nextIncrement > milli / 1000) {
-    nextIncrement -= milli / 1000;
-    adjust += (milli % 1000) * 1000;
-  }
   savedRTCmemory.actualTimestamp = now() + nextIncrement;
   saveRTCmemory();
-  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+
+
+  uint64_t microsDelay = 1000000LL * nextIncrement;
+  Serial.print("microsDelay=");
+  Serial.print(float(microsDelay));
+  Serial.print(", corr=");
+  Serial.print(savedRTCmemory.correction);
+  Serial.print(", micro=");
+  microsDelay += savedRTCmemory.correction * nextIncrement;  // 1.004;
+  Serial.print(float(microsDelay));
+  Serial.println(".");
+  //if (nextIncrement > 0) ESP.deepSleep(microsDelay - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  if (nextIncrement > 0) ESP.deepSleep(microsDelay  - adjust , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  // if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+
+
+  //////////////////////////////
+  //  int32_t adjust = 149300;
+  //  uint32_t milli = millis();
+  //  if (offset > 0 && nextIncrement > milli / 1000) {
+  //    nextIncrement -= milli / 1000;
+  //    adjust += (milli % 1000) * 1000;
+  //  }
+  //  savedRTCmemory.actualTimestamp = now() + nextIncrement;
+  //  saveRTCmemory();
+  //  if (nextIncrement > 0) {
+  //    //uint64_t microsDelay = 1000000LL * nextIncrement * savedRTCmemory.correction;  // 1.004;
+  //    //ESP.deepSleep(microsDelay - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);
+  //    ESP.deepSleep(savedRTCmemory.correction * 1E6 * nextIncrement  - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  //    //ESP.deepSleep(nextIncrement * 1.004 * 1E6 - adjust, (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  ///////////////////////////////////////////////////
+
+  //  }
+
 }
 
 
@@ -147,10 +217,19 @@ void DeepSleepManager::continueDeepSleep() {
     nextIncrement = savedRTCmemory.remainingTime;
   }
   savedRTCmemory.remainingTime -= nextIncrement;
-  savedRTCmemory.actualTimestamp = now() + nextIncrement;
+  savedRTCmemory.actualTimestamp += nextIncrement;
   saveRTCmemory();
+  uint64_t microsDelay = 1000000LL * nextIncrement;
+  microsDelay += savedRTCmemory.correction * nextIncrement;  // 1.004;
+  Serial.print("microsDelay  = ");
+  Serial.print(float(microsDelay));
+  Serial.print(", micros=");
+  Serial.print(micros());
+  Serial.println(".");
 
-  if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  //if (nextIncrement > 0) ESP.deepSleep(microsDelay - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  if (nextIncrement > 0) ESP.deepSleep(microsDelay  - micros() - adjust , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
+  // if (nextIncrement > 0) ESP.deepSleep(nextIncrement * 1.004 * 1E6 - micros() - 149300 , (savedRTCmemory.remainingTime > 0 ) ? RF_DISABLED : RF_DEFAULT);  //2094
 }
 
 
@@ -190,13 +269,52 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
   if (bootTimestamp == 0 ) {
     bootTimestamp = timestamp - millis() / 1000;
   }
-  if (savedRTCmemory.powerOnTimestamp == 0 && year(timestamp) >= 2000) {
+  if (savedRTCmemory.powerOnTimestamp == 0 && year(timestamp) >= NOT_A_DATE_YEAR) {
     savedRTCmemory.powerOnTimestamp = timestamp - savedRTCmemory.actualTimestamp;
     bootTimestamp -= timestamp - savedRTCmemory.actualTimestamp;
+  }
+  int16_t delta = timestamp - savedRTCmemory.actualTimestamp;
+  if (delta == 0 ) return;
+  if (delta != 1) {
+    Serial.print("DSM: delta = ");
+    Serial.println(delta);
+  }
+  delta--;
+  if ( savedRTCmemory.uncorrectedTime > 0 && timeStatus() == timeSet) {
+    D_println(savedRTCmemory.uncorrectedTime);
+    if (delta != 0 && savedRTCmemory.uncorrectedTime > 100  ) {  // no correction on less than 100 sec or more than 100ms correction
+      int32_t corr = 1000000L * delta;
+      //D_println(corr);
+      corr = 1000000L * delta / savedRTCmemory.uncorrectedTime;
+      D_println(corr);
+      if (abs(corr) < 100000) {
+        Serial.println("correction done ");
+        savedRTCmemory.correction -= corr;
+      }
+    }
+    D_println(savedRTCmemory.correction);
+    savedRTCmemory.uncorrectedTime = 0;
+
   }
   savedRTCmemory.actualTimestamp = timestamp;
   saveRTCmemory();
 }
+
+
+String DeepSleepManager::getTxtRstReason() {
+  switch (getRstReason()) {
+    case REASON_DEFAULT_RST:  return (F("->Cold boot"));
+    case REASON_EXT_SYS_RST:  return (F("->boot with BP Reset")); break;
+    case REASON_DEEP_SLEEP_AWAKE:  return (F("->boot from a deep sleep pending")); break;
+    case REASON_DEEP_SLEEP_TERMINATED: return (F("->boot from a deep sleep terminated")); break;
+    case REASON_USER_BUTTON: return (F("->boot from a deep sleep aborted with BP User")); break;
+    //   case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
+    case REASON_SOFT_RESTART: return (F("->boot after a soft Reset")); break;
+    default:
+      return (String(F("->boot reason = ")) + getRstReason());
+  }
+}
+
 
 
 bool DeepSleepManager::saveRTCmemory() {
@@ -242,6 +360,8 @@ bool  DeepSleepManager::setCrc8(const void* data, const uint16_t size, uint8_t &
   refCrc = crc;
   return result;
 }
+
+
 
 /////////////////////////////////////////////////////////////////////////
 //  crc 8 tool

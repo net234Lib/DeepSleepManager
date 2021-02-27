@@ -47,6 +47,7 @@ const long interval = 1000;           // interval at which to blink (millisecond
 // the setup function runs once when you press reset or power the board
 void setup() {
   Serial.begin(115200);
+  
   // enable button RST On/Off mode see : exemple resetOnOff.ino
   if ( MyDeepSleepManager.getRstReason() == REASON_EXT_SYS_RST ) {
     Serial.println("\r\n" "Going to sleep :) ... Bye.");
