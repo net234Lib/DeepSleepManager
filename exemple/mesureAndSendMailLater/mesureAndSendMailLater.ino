@@ -75,14 +75,14 @@
 
 #include "private.h"
 
-#define APP_VERSION   "mesureAndSendMailLater B02  node00"
+#define APP_VERSION   "mesureAndSendMailLater B03  node01"
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
 #define HTTP_SERVER   "www.free.fr"        // for clock syncr replace with your FAI http server
-#define SMTP_SERVER   "smtp.free.fr"
-//#define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server
-#define SMTP_LOGIN    "" //PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
-#define SMTP_PASS     "" //PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
-#define SEND_FROM     PRIVATE_SEND_FROM    // replace with your test adresse
+//#define SMTP_SERVER   "smtp.free.fr"
+#define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server
+#define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
+#define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
+#define SEND_FROM     "nodemcu01@frdev.com" //PRIVATE_SEND_FROM    // replace with your test adresse
 #define DATA_FILENAME "/data.csv"
 // to check batterie
 ADC_MODE(ADC_VCC);
@@ -122,15 +122,15 @@ float  Vcc;      // last mesured Vcc
 void setup() {
   // Setup BP0
   pinMode( BP0, INPUT_PULLUP);
-
   Vcc = getVcc();
+
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
   Serial.begin(115200);
   Serial.println(F("\n" APP_VERSION));
   D_println(Vcc);
 
   if ( rstReason == REASON_DEEP_SLEEP_AWAKE  ) {
-    // here we start serial to show that we are awake
+    // here we are in low power mode without wifi access
     D_println(MyDeepSleepManager.getBootCounter());
     Serial.print("MyDeepSleepManager.getPowerOnTimestamp = ");
     Serial.println(niceDisplayTime(MyDeepSleepManager.getPowerOnTimestamp()));
@@ -145,7 +145,7 @@ void setup() {
 
     // Get local time
     time_t localTime = now();
-    D_println(niceDisplayTime(localTime));
+    //D_println(niceDisplayTime(localTime));
 
     // Init FS system and save Value and localTime on  local File:data.csv
     MyFS.begin();
@@ -179,12 +179,10 @@ void setup() {
 
 
   digitalWrite(LED1, LED1_ON);
-  logDataCSV("Boot: " +  getTxtRestartReason());
+  logDataCSV("Boot: " +  MyDeepSleepManager.getTxtRstReason());
   logDataCSV("Vcc: " +  String(Vcc));
   //  Serial.begin(115200);
   //  Serial.println(F(APP_VERSION));
-  Serial.print("MyDeepSleepManager.WiFiLocked = ");
-  Serial.println(MyDeepSleepManager.WiFiLocked);
   Serial.print("MyDeepSleepManager.getBootCounter = ");
   Serial.println(MyDeepSleepManager.getBootCounter());
   Serial.print("MyDeepSleepManager.getRemainingTime = ");
@@ -212,7 +210,7 @@ void setup() {
   // This exemple supose a WiFi connection so if we are not WIFI_STA mode we force it
   if (WiFi.getMode() != WIFI_STA) {
     Serial.println(F("!!! Force WiFi to STA mode !!!  should be done only ONCE even if we power off "));
-    logDataCSV("Restore WiFI credential");
+    logDataCSV("Set WiFI to STA mode");
     WiFi.mode(WIFI_STA);
     //WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   }
@@ -224,9 +222,9 @@ void setup() {
   MyFS.begin();
 
 
-  Serial.println(F("==== data.csv ====="));
-  printDataCSV();
-  Serial.println(F("==== eof datat.csv ="));
+  //  Serial.println(F("==== data.csv ====="));
+  //  printDataCSV();
+  //  Serial.println(F("==== eof datat.csv ="));
   Serial.println(F(APP_VERSION));
 
   Serial.println(F("Bonjour ..."));
@@ -264,6 +262,11 @@ void loop() {
         Serial.println(F("type 'W' to adjust WiFi credential"));
       }
     }
+    if ( MyDeepSleepManager.getRstReason() != REASON_USER_BUTTON && now() - MyDeepSleepManager.getBootTimestamp() > 30 ) {
+      logDataCSV("Time out no WiFi to send mail  Restart deepSleep for 1 Hour");
+      //MyDeepSleepManager.startDeepSleep( 3 * 60 * 60 , 10 * 60, 5 * 60 );
+      MyDeepSleepManager.startDeepSleep( 60 * 60 , 10 * 60, 5 * 60 );
+    }
   }
 
 
@@ -283,8 +286,6 @@ void loop() {
       setSyncInterval(60 * 10);
       connectedTimeStamp = now();
 
-      Vcc = getVcc();
-      logDataCSV( "WiFI Connected Vcc=" + String(Vcc) );
       if (!connectedToInternet()) {
         logDataCSV(F("No Internet connection"));
         break;
@@ -304,7 +305,7 @@ void loop() {
 
       // do we restart from a end of deep sleep ?
       if ( MyDeepSleepManager.getRstReason() != REASON_DEEP_SLEEP_TERMINATED) {
-        Serial.println(F("No job to when restart is not Deep Sleep Terminated"));
+        Serial.println(F("No job to do when restart is not Deep Sleep Terminated"));
         break;
       }
       // some data to send
@@ -325,11 +326,11 @@ void loop() {
         logDataCSV(F("tried an email"));
       }
       //logDataCSV(F("-- start DeepSleep again for 1 Min with a 10 sec incremental offset 2"));
-      logDataCSV(F("-- start DeepSleep with 10 minutes mesures mail at 23H45"));
+      logDataCSV(F("-- start DeepSleep with 10 minutes mesures mail at 20H30"));
       logDataCSV("Millsec was " + String(millis()));
       Serial.println(F("<-- GO"));
       //MyDeepSleepManager.startDeepSleep( 60, 10, 2 );
-      MyDeepSleepManager.deepSleepUntil( 23, 45, 0, 10 * 60 );
+      MyDeepSleepManager.deepSleepUntil( 20, 30, 0, 10 * 60, 5 * 60 );
     } while (false);
 
   }
@@ -690,16 +691,16 @@ String niceDisplayTime(time_t time) {
 }
 
 
-String getTxtRestartReason() {
-  switch (MyDeepSleepManager.getRstReason()) {
-    case REASON_DEFAULT_RST:  return (F("->Cold boot"));
-    case REASON_EXT_SYS_RST:  return (F("->boot with BP Reset")); break;
-    case REASON_DEEP_SLEEP_AWAKE:  return (F("->boot from a deep sleep pending")); break;
-    case REASON_DEEP_SLEEP_TERMINATED: return (F("->boot from a deep sleep terminated")); break;
-    case REASON_USER_BUTTON: return (F("->boot from a deep sleep aborted with BP User")); break;
-    //   case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
-    case REASON_SOFT_RESTART: return (F("->boot after a soft Reset")); break;
-    default:
-      return (String(F("->boot reason = ")) + MyDeepSleepManager.getRstReason());
-  }
-}
+//String getTxtRestartReason() {
+//  switch (MyDeepSleepManager.getRstReason()) {
+//    case REASON_DEFAULT_RST:  return (F("->Cold boot"));
+//    case REASON_EXT_SYS_RST:  return (F("->boot with BP Reset")); break;
+//    case REASON_DEEP_SLEEP_AWAKE:  return (F("->boot from a deep sleep pending")); break;
+//    case REASON_DEEP_SLEEP_TERMINATED: return (F("->boot from a deep sleep terminated")); break;
+//    case REASON_USER_BUTTON: return (F("->boot from a deep sleep aborted with BP User")); break;
+//    //   case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
+//    case REASON_SOFT_RESTART: return (F("->boot after a soft Reset")); break;
+//    default:
+//      return (String(F("->boot reason = ")) + MyDeepSleepManager.getRstReason());
+//  }
+//}
