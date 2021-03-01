@@ -137,7 +137,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
     tmUntil += 24 * 3600;
   }
   tmUntil -= tmNow;
-  startDeepSleep(tmUntil, pIncrement,pOffset);
+  startDeepSleep(tmUntil, pIncrement, pOffset);
 }
 
 //const int32_t adjust = 150000;//149300; +130
@@ -302,17 +302,20 @@ void     DeepSleepManager::setActualTimestamp(time_t timestamp) {   // save time
 
 
 String DeepSleepManager::getTxtRstReason() {
-  switch (getRstReason()) {
-    case REASON_DEFAULT_RST:  return (F("->Cold boot"));
-    case REASON_EXT_SYS_RST:  return (F("->boot with BP Reset")); break;
-    case REASON_DEEP_SLEEP_AWAKE:  return (F("->boot from a deep sleep pending")); break;
-    case REASON_DEEP_SLEEP_TERMINATED: return (F("->boot from a deep sleep terminated")); break;
-    case REASON_USER_BUTTON: return (F("->boot from a deep sleep aborted with BP User")); break;
-    //   case REASON_RESTORE_WIFI: Serial.println(F("->boot from a restore WiFI command")); break;
-    case REASON_SOFT_RESTART: return (F("->boot after a soft Reset")); break;
-    default:
-      return (String(F("->boot reason = ")) + getRstReason());
+  uint8_t rstReason = getRstReason();
+  switch (rstReason) {
+    case REASON_DEFAULT_RST:  return (F("Cold boot"));
+    case REASON_EXT_SYS_RST:  return (F("boot with BP Reset"));
+    case REASON_EXCEPTION_RST:  return (F("boot with exception Reset"));
+    case REASON_SOFT_WDT_RST:  return (F("boot with watchdog Reset"));
+    case REASON_DEEP_SLEEP_AWAKE:  return (F("boot from a deep sleep pending"));
+    case REASON_DEEP_SLEEP_TERMINATED: return (F("boot from a deep sleep terminated"));
+    case REASON_USER_BUTTON: return (F("boot from a deep sleep aborted with BP User"));
+    case REASON_SOFT_RESTART: return (F("boot after a soft Reset"));
   }
+  String result = String(F("->boot reason = "));
+  result += rstReason;
+  return result;
 }
 
 
