@@ -75,19 +75,28 @@
 
 #include "private.h"
 
-#define APP_VERSION   "mesureAndSendMailLater B03  node01"
+#define APP_VERSION   "mesureAndSendMailLater B03b  node04 esp01"
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
 #define HTTP_SERVER   "www.free.fr"        // for clock syncr replace with your FAI http server
-//#define SMTP_SERVER   "smtp.free.fr"
 #define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server
 #define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
 #define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
-#define SEND_FROM     "nodemcu01@frdev.com" //PRIVATE_SEND_FROM    // replace with your test adresse
+#define SEND_FROM     "nodemcu00@frdev.com" //PRIVATE_SEND_FROM    // replace with your test adresse
 #define DATA_FILENAME "/data.csv"
 // to check batterie
 ADC_MODE(ADC_VCC);
 
-// GPIO2 on ESP32
+// pinout GPIO1
+// 1 - GND
+// 2 - 1 GPIO1   TXD0
+// 3 - 2 GPIO2   TXD1 IO/PIN  
+// 4 - CHIP_EN   (NC)
+// 5 - 0 GPIO0   FLASH  (must be HIGH for boot)
+// 6 - RST       RESET
+// 7 - 3 GPIO3   RXD0
+// 8 - VCC 3V
+ 
+// GPIO2 on ESP01
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
 #define LED1        LED_BUILTIN
 #define LED1_ON LOW
@@ -96,7 +105,8 @@ ADC_MODE(ADC_VCC);
 
 // User button to unlock the deep Sleep (with press reset while BP0 down)
 //BP0 (MOSI)   D7   GPIO13 is Used as BP0 status (pullup)
-#define BP0 D7
+//#define BP0 D7
+#define BP0 2  // on ESP01 BP0 is RXD
 #define BP0_DOWN LOW
 
 // instance for  the DeepSleepManager
@@ -112,18 +122,17 @@ DHTesp MyDHT11;
 #define MyFS LittleFS
 // if you prefer SPIFFS
 //#include "FS.h" // SPIFFS is declared
-//#define MyFS SPIFFS
+//#define MyFS SPIFFSc
 
 // status of push button connected on D7
-bool bp0Status;  // BP0 status
+bool bp0Status;  // BP0 statusc
 float  Vcc;      // last mesured Vcc
 #define getVcc() ( float(ESP.getVcc())/1024 )  // to get Vcc in Volt
 
 void setup() {
-  // Setup BP0
+  // Setup BP0cc
   pinMode( BP0, INPUT_PULLUP);
   Vcc = getVcc();
-
   uint8_t rstReason = MyDeepSleepManager.getRstReason(BP0);
   Serial.begin(115200);
   Serial.println(F("\n" APP_VERSION));
@@ -140,7 +149,9 @@ void setup() {
 
 
     // Init DHT11 and get Values
-    MyDHT11.setup(D6, DHTesp::DHT11); // Connect DHT sensor to D6
+//    MyDHT11.setup(D6, DHTesp::DHT11); // Connect DHT sensor to D6
+    MyDHT11.setup(2, DHTesp::DHT11); // Connect DHT sensor to GPIO 1 TXD
+
     TempAndHumidity  dht11Values = MyDHT11.getTempAndHumidity();
 
     // Get local time
@@ -387,6 +398,7 @@ void loop() {
     if (aChar == 'H') {
       logDataCSV(F("-- Hard reset with D0 -> LOW"));
       delay(2);
+   #define D0 0  // gpio 0 on ESP01
       pinMode(D0, OUTPUT);
       digitalWrite(D0, LOW);  //
       delay(1000);
