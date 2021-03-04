@@ -5,6 +5,22 @@
    use reset button as on/off togle switch
    with the standard blink demo :)
 
+  This file is part of DeepSleepManager.
+
+    DeepSleepManager is free software: you can redistribute it and/or modify
+    it under the terms of the GNU Lesser General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    DeepSleepManager is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU Lesser General Public License
+    along with betaEvents.  If not, see <https://www.gnu.org/licenses/lglp.txt>.
+
+
 */
 
 #include <Arduino.h>
@@ -13,23 +29,12 @@
 // instance for  the DeepSleepManager
 #include <DeepSleepManager.h>
 DeepSleepManager MyDeepSleepManager;
-// ESP standard restart reason keywords
-//enum rst_reason {
-// REASON_DEFAULT_RST = 0,              /* normal startup by power on */
-// REASON_WDT_RST = 1,                  /* hardware watch dog reset */
-// REASON_EXCEPTION_RST = 2,            /* exception reset, GPIO status won't change */
-// REASON_SOFT_WDT_RST   = 3,           /* software watch dog reset, GPIO status won't change */
-// REASON_SOFT_RESTART = 4,             /* software restart ,system_restart , GPIO status won't change */
-// REASON_DEEP_SLEEP_AWAKE = 5,         /* wake up from deep-sleep */
-// REASON_EXT_SYS_RST      = 6          /* external system reset */
-// Specific DeepSleepManager restart reason
-// REASON_USER_BUTTON  10               /* user button detected */
-// REASON_DEEP_SLEEP_TERMINATED 11      /* full deep sleep cycle is terminated */
+
 
 // the setup function runs once when you press reset or power the board
 void setup() {
 
-  // here we start serial just to show that append
+
   ////////////////////////////////////////////////
   // in your sketch just add these 3 lines on top of setup () to do the same
   //
@@ -39,20 +44,24 @@ void setup() {
   //
   ////////////////////////////////////////////////
 
-
+  // here we start serial just to show that append
   Serial.begin(115200);
   Serial.println("\r\n\n\n" "resetOnOff DeepSleepManger");
   if ( MyDeepSleepManager.getRstReason() == REASON_EXT_SYS_RST ) {
     Serial.println("This is a button RST reset so we go to sleep undefinitly with all function OFF (including WiFi) so very low power needed");
     Serial.println("ESP is OFF the led is OFF");
+    Serial.println("Power supply is up to 10ma with USB   2ma with 3,3v ");
+
     MyDeepSleepManager.permanentDeepSleep();  // go back to deep sleep
-    // after a deep sleep ANY reset (execpt power on startup) will be reported as a REASON_DEEP_SLEEP_AWAKE 
+    // after a deep sleep ANY reset (execpt power on startup) will be reported as a REASON_DEEP_SLEEP_AWAKE
     //   so the next time we press RST button we wont do  permanentDeepSleep()
   }
   // we are here because we restart from a deep sleep
   Serial.println("This is a DeepSleep reset (or any other reset than a button RST reset) so we do the loop");
   Serial.println("WiFi is full restored as it was before including credential to WiFi (if it was already programed in another sketch)");
   Serial.println("ESP is ON the led BLINK");
+  Serial.println("Power supply is around 80ma with wifi on  (170ma max)");
+
 
 
 
