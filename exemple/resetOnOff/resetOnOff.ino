@@ -1,6 +1,6 @@
 /*************************
    resetOnOff DeepSleepManger
-   net234 04/02/2021
+   net234 04/02/2021 https://github.com/net234/DeepSleepManager
 
    use reset button as on/off togle switch
    with the standard blink demo :)

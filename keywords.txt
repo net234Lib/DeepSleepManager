@@ -28,6 +28,7 @@ getActualTimestamp	KEYWORD2
 setActualTimestamp	KEYWORD2
 saveRTCData	KEYWORD2
 restoreRTCData	KEYWORD2
+getTxtRstReason	KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
