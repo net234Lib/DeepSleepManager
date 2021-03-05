@@ -48,6 +48,7 @@ time_t getNtpTime()
       secsSince1900 |= (unsigned long)packetBuffer[43];
        long time = secsSince1900 - 2208988800UL + timeZone * SECS_PER_HOUR;
        Serial.println(niceDisplayTime(time)); // every minute
+
    //   Serial.print("Delta time ");
    //   Serial.println((long)time-MyDeepSleepManager.getActualTimestamp());
       return time;
