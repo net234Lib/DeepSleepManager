@@ -75,7 +75,6 @@
 
 #include "private.h"
 
-
 #define APP_VERSION   "mesureAndSendMailLater B03  node01"
 
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
@@ -84,6 +83,7 @@
 #define SMTP_SERVER   PRIVATE_SMTP_SERVER  // replace with your FAI smtp server
 #define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
 #define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
+
 #define SEND_FROM     "nodemcu01@frdev.com" //PRIVATE_SEND_FROM    // replace with your test adresse
 
 #define DATA_FILENAME "/data.csv"
@@ -182,21 +182,19 @@ void setup() {
 
 
   digitalWrite(LED1, LED1_ON);
-  logDataCSV("Boot: " +  MyDeepSleepManager.getTxtRstReason());
-  logDataCSV("Vcc: " +  String(Vcc));
-  //  Serial.begin(115200);
-  //  Serial.println(F(APP_VERSION));
-  Serial.print("MyDeepSleepManager.getBootCounter = ");
-  Serial.println(MyDeepSleepManager.getBootCounter());
-  Serial.print("MyDeepSleepManager.getRemainingTime = ");
-  Serial.println(MyDeepSleepManager.getRemainingTime());
-  Serial.print("MyDeepSleepManager.getBootTimeStamp = ");
+  String aTxt;
+  aTxt = F("Boot: ");
+  aTxt += MyDeepSleepManager.getTxtRstReason();
+  logDataCSV(aTxt);
 
-  Serial.println(niceDisplayTime(MyDeepSleepManager.getBootTimestamp()));
-  Serial.print("MyDeepSleepManager.getPowerOnTimeStamp = ");
-  Serial.println(niceDisplayTime(MyDeepSleepManager.getPowerOnTimestamp()));
+  aTxt = F("Vcc: ");
+  aTxt += Vcc;
+  logDataCSV(aTxt);
 
-
+  D_println(MyDeepSleepManager.getBootCounter());
+  D_println(MyDeepSleepManager.getRemainingTime());
+  D_println(niceDisplayTime(MyDeepSleepManager.getBootTimestamp()));
+  D_println(niceDisplayTime(MyDeepSleepManager.getPowerOnTimestamp()));
 
   // if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will to a restart to unlock wifi
   if ( MyDeepSleepManager.WiFiLocked) {
