@@ -75,7 +75,9 @@
 
 #include "private.h"
 
+
 #define APP_VERSION   "mesureAndSendMailLater B03  node01"
+
 #define SEND_TO       PRIVATE_SEND_TO      // replace with your test adresse
 #define HTTP_SERVER   "www.free.fr"        // for clock syncr replace with your FAI http server
 //#define SMTP_SERVER   "smtp.free.fr"
@@ -83,6 +85,7 @@
 #define SMTP_LOGIN    PRIVATE_SMTP_LOGIN   // replace with your smtp login (base64) 
 #define SMTP_PASS     PRIVATE_SMTP_PASS    // replace with your smtp pass  (base64) 
 #define SEND_FROM     "nodemcu01@frdev.com" //PRIVATE_SEND_FROM    // replace with your test adresse
+
 #define DATA_FILENAME "/data.csv"
 // to check batterie
 ADC_MODE(ADC_VCC);

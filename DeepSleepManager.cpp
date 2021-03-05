@@ -125,10 +125,6 @@ void DeepSleepManager::permanentDeepSleep() {
   ESP.deepSleep(0, RF_DEFAULT);
 }
 
-
-
-
-
 void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMinute, const uint8_t pSecond,  uint16_t pIncrement, uint16_t pOffset) {
   tmElements_t tm;
   time_t tmNow = now();
@@ -143,6 +139,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
   tmUntil -= tmNow;
   startDeepSleep(tmUntil, pIncrement,pOffset);
 }
+
 //const int32_t adjust = 150000;//149300; +130
 //const int32_t adjust = 140000; +140
 //const int32_t adjust = 300000; //+.10
@@ -151,6 +148,7 @@ void     DeepSleepManager::deepSleepUntil(const uint8_t pHour, const uint8_t pMi
 //const int32_t adjust   = 0; //    corr = 2000000
 const int32_t adjust   = 900000LL; //    corr = 2000000
 //const int32_t adjust   = 328929;
+
 void DeepSleepManager::startDeepSleep(const uint32_t sleepTimeSeconds, const uint16_t increment, const uint16_t offset ) { // start a deepSleepMode with   default increment 2 hours
   savedRTCmemory.actualTimestamp = now();
   savedRTCmemory.startTimestamp = savedRTCmemory.actualTimestamp;
