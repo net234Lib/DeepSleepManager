@@ -2,16 +2,16 @@
 #include <ESP8266HTTPClient.h>
 
 time_t getWebTime() {
-  // connect to a captive portal used by any navigators to check web connections
+  // connect to a captive portal to get time (theses portal are used by any navigators to check web connections)
   //  safari     captive.apple.com  timestamp around 4 second false (use cache to fast redirect)
   //  chrome     connectivitycheck.gstatic.com
   //  firefox    detectportal.firefox.com
   //  edge       www.msftncsi.com  timestamp about 1 second
   //  https://success.tanaza.com/s/article/How-Automatic-Detection-of-Captive-Portal-works
-  // in fact any descent hhtp web server redirect on https  so use your FAI web url (dont call it avery seconds :)
+  // in fact any descent http web server redirect on https  so use your FAI web url (dont call it every seconds :)
   // mine is www.free.fr
 
-#define  HTTP_SERVER  "www.free.fr"
+#define  HTTP_SERVER  "www.free.fr"  // my FAI web server
 
   Serial.println(F("connect to " HTTP_SERVER " to get time"));
 
@@ -19,7 +19,7 @@ time_t getWebTime() {
   HTTPClient http;  //Declare an object of class HTTPClient
 
   http.begin(client, "http://" HTTP_SERVER); //Specify request destination
-  // we need date to setup clock
+  // we need date to setup clock so 
   const char * headerKeys[] = {"date"} ;
   const size_t numberOfHeaders = 1;
   http.collectHeaders(headerKeys, numberOfHeaders);
@@ -32,9 +32,9 @@ time_t getWebTime() {
     return (0);
   }
 
-  // we got an answer
+  // we got an answer the date is in the header so we grab it
   String headerDate = http.header(headerKeys[0]);
-  // try to setup Clock
+  // Check the header should be a 29 char texte like this 'Mon, 24 May 2021 13:57:04 GMT'
   D_println(headerDate);
   if (!headerDate.endsWith(" GMT") || headerDate.length() != 29) {
     Serial.println(F("reponse invalide :("));
@@ -55,12 +55,12 @@ time_t getWebTime() {
 
 
   tmElements_t dateStruct;
-  // we got a date
+  // Grab date from the header
   dateStruct.Second  = headerDate.substring(23, 25).toInt();
   dateStruct.Minute  = headerDate.substring(20, 22).toInt();
   dateStruct.Hour = headerDate.substring(17, 19).toInt();
   dateStruct.Year = headerDate.substring(12, 16).toInt() - 1970;
-  const String monthName = F("JanFebMarAprJunJulAugSepOctNovDec");
+  const String monthName = F("JanFebMarAprMayJunJulAugSepOctNovDec");
   dateStruct.Month = monthName.indexOf(headerDate.substring(8, 11)) / 3 + 1;
   dateStruct.Day = headerDate.substring(5, 7).toInt();
 
@@ -70,13 +70,12 @@ time_t getWebTime() {
   //          Serial.print(dateStruct.tm_mday); Serial.print("/");
   //          Serial.print(dateStruct.tm_mon); Serial.print("/");
   //          Serial.print(dateStruct.tm_year); Serial.println(" ");
-  time_t serverTS = makeTime(dateStruct) + 3600;
-
+  //time_t serverTS = makeTime(dateStruct) + 1 * 3600; // winter time in france
+  time_t serverTS = makeTime(dateStruct) + 2 * 3600; // summer time in france
   Serial.print("Server time = ");
   Serial.println(niceDisplayTime(serverTS));
 
-
-  //Date: Mon, 25 Jan 2021 21:18:52 GMT
+  // we dont use the payload here
   //String payload = http.getString();   //Get the request response payload
   //Serial.println(payload);             //Print the response payload
   http.end();   //Close connection
