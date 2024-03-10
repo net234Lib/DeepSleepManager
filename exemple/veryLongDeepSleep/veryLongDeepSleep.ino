@@ -12,12 +12,15 @@
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
-#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+#define D_println(x) \
+  Serial.print(F(#x " => '")); \
+  Serial.print(x); \
+  Serial.println("'");
 
-#define APP_VERSION   "veryLongDeepSleep"
+#define APP_VERSION "veryLongDeepSleep"
 
 // GPIO2 on ESP8266
-#define LED1        LED_BUILTIN
+#define LED1 LED_BUILTIN
 #define LED1_ON LOW
 #define LED1_OFF (!LED1_ON)
 
@@ -42,14 +45,15 @@ bool bp0Status;
 
 
 void setup() {
+  enableWiFiAtBootTime();  // mendatory for autoconnect WiFi with ESP8266 kernel 3.0
   // Setup BP0
   //pinMode( BP0, INPUT_PULLUP);
-  pinMode( BP0, INPUT);
-  if ( MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE ) {
+  pinMode(BP0, INPUT_PULLUP);
+  if (MyDeepSleepManager.getRstReason(BP0) == REASON_DEEP_SLEEP_AWAKE) {
 
     // here we start serial to show that we are awake with a 'regular' DEEP_SLEEP_AWAKE
     Serial.begin(115200);
-    Serial.println(F("\n" APP_VERSION ));
+    Serial.println(F("\n" APP_VERSION));
     Serial.print("MyDeepSleepManager.getPowerOnTimestamp = ");
     Serial.println(niceDisplayTime(MyDeepSleepManager.getPowerOnTimestamp()));
     Serial.print("MyDeepSleepManager.getActualTimestamp  = ");
@@ -60,8 +64,8 @@ void setup() {
     MyDeepSleepManager.continueDeepSleep();  // go back to deep sleep
   }
   // we are here because longDeepSleep is fully elapsed or a reset with BP0 append
-  // if you need to use WiFi call MyDeepSleepManager.restoreWiFi() this will do a restart to unlock wifi
-  if ( MyDeepSleepManager.WiFiLocked) {
+  // if you need to use WiFi call MyDeepSleepManager.WiFiUnlock() this will do a restart to unlock wifi
+  if (MyDeepSleepManager.WiFiLocked) {
     // "-->Restore WiFi"
     MyDeepSleepManager.WiFiUnlock();
     // !! restore WiFi will make a special reset so we never arrive here !!
@@ -87,7 +91,7 @@ void setup() {
   Serial.print("MyDeepSleepManager.remainingTime       = ");
   Serial.println(niceDisplayTime(MyDeepSleepManager.getRemainingTime()));
 
-  Serial.println(F( APP_VERSION ));
+  Serial.println(F(APP_VERSION));
 
 
   //WiFi.forceSleepBegin();  // this do  a WiFiMode OFF  !!! save some power (Need
@@ -124,15 +128,15 @@ bool wifiConnected = false;
 void loop() {
   // Save the time when it change so we can reboot with localtime almost acurate
   uint32_t lastnow = now();
-  if ( lastnow != MyDeepSleepManager.getActualTimestamp() ) {
+  if (lastnow != MyDeepSleepManager.getActualTimestamp()) {
     MyDeepSleepManager.setActualTimestamp(lastnow);
 
-    // this will append every seconds
-    if (second() == 0) Serial.println(niceDisplayTime(lastnow)); // every minute
+    // this will append every minutes
+    if (second() == 0) Serial.println(niceDisplayTime(lastnow));  // every minute
 
     // If we are not connected we warn the user every 30 seconds that we need to update credential
-    if ( WiFi.status() == WL_CONNECTED ) {
-      if ( !wifiConnected) {
+    if (WiFi.status() == WL_CONNECTED) {
+      if (!wifiConnected) {
         wifiConnected = true;
         Serial.print(F("Connected to Wifi : "));
         Serial.println(WiFi.SSID());
@@ -150,7 +154,7 @@ void loop() {
     } else {
       wifiConnected = false;
       // every 30 sec
-      if ( now() % 30 == 20 ) {
+      if (now() % 30 == 20) {
         Serial.print(F("device not connected to local WiFi : "));
         Serial.println(WiFi.SSID());
         Serial.println(F("type 'W' to adjust WiFi credential"));
@@ -166,15 +170,17 @@ void loop() {
     if (aChar == 'A') {
       Serial.println(F("-- start DeepSleep Until 23:00  increment 3 hours"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
-      Serial.print(F("<-- GO ")); Serial.println(niceDisplayTime(now()));
-      MyDeepSleepManager.deepSleepUntil(23,0,0); // start a deepSleepMode with 1 hours incremental
+      Serial.print(F("<-- GO "));
+      Serial.println(niceDisplayTime(now()));
+      MyDeepSleepManager.deepSleepUntil(23, 0, 0);  // start a deepSleepMode with 1 hours incremental
     }
 
     if (aChar == 'B') {
       Serial.println(F("-- start DeepSleep Until 08:00  increment 3 hours"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
-      Serial.print(F("<-- GO ")); Serial.println(niceDisplayTime(now()));
-      MyDeepSleepManager.deepSleepUntil(8,0,0); // start a deepSleepMode with 1 hours incremental
+      Serial.print(F("<-- GO "));
+      Serial.println(niceDisplayTime(now()));
+      MyDeepSleepManager.deepSleepUntil(8, 0, 0);  // start a deepSleepMode with 1 hours incremental
     }
 
 
@@ -183,7 +189,7 @@ void loop() {
       Serial.println(F("-- start DeepSleep for 12 Hours"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep(12 * 60 * 60); // start a deepSleepMode with 1 hours incremental
+      MyDeepSleepManager.startDeepSleep(12 * 60 * 60);  // start a deepSleepMode with 1 hours incremental
     }
 
 
@@ -192,77 +198,77 @@ void loop() {
       Serial.println(F("-- start DeepSleep for 4 Hours"));
       Serial.println(F("   each press on RESET will skip 1 hours"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep(4 * 60 * 60, 60 * 60); // start a deepSleepMode with 1 hours incremental
+      MyDeepSleepManager.startDeepSleep(4 * 60 * 60, 60 * 60);  // start a deepSleepMode with 1 hours incremental
     }
 
     if (aChar == 's') {
       Serial.println(F("-- start DeepSleep for 4 Hours max incremental"));
       Serial.println(F("   each press on RESET will skip 3 hours"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep(4 * 60 * 60); // start a deepSleepMode with 1 hours incremental
+      MyDeepSleepManager.startDeepSleep(4 * 60 * 60);  // start a deepSleepMode with 1 hours incremental
     }
 
     if (aChar == '0') {
       Serial.println(F("-- start DeepSleep for 10 Second no inc"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 10 );
+      MyDeepSleepManager.startDeepSleep(10);
     }
 
 
     if (aChar == 'T') {
       Serial.println(F("-- start DeepSleep for 1 Minute with a 10 Second incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 60 , 10 );
+      MyDeepSleepManager.startDeepSleep(60, 10);
     }
 
     if (aChar == 't') {
       Serial.println(F("-- start DeepSleep for 1 Minute with no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 60 );
+      MyDeepSleepManager.startDeepSleep(60);
     }
 
 
     if (aChar == '1') {
       Serial.println(F("-- start DeepSleep for 10 Minute with no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 10 * 60 );
+      MyDeepSleepManager.startDeepSleep(10 * 60);
     }
 
     if (aChar == '2') {
       Serial.println(F("-- start DeepSleep fof 20 Minute with no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 20 * 60 );
+      MyDeepSleepManager.startDeepSleep(20 * 60);
     }
     if (aChar == '3') {
       Serial.println(F("-- start DeepSleep for 30 Minute with no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 30 * 60 );
+      MyDeepSleepManager.startDeepSleep(30 * 60);
     }
 
 
     if (aChar == 'U') {
       Serial.println(F("-- start DeepSleep for 5 Minutes with a 30 Seconds incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 5 * 60 , 30 );
+      MyDeepSleepManager.startDeepSleep(5 * 60, 30);
     }
 
     if (aChar == 'u') {
       Serial.println(F("-- start DeepSleep for 5 Minutes no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 5 * 60 );
+      MyDeepSleepManager.startDeepSleep(5 * 60);
     }
 
 
     if (aChar == 'V') {
       Serial.println(F("-- start DeepSleep for 1 Hour with a 1 Minute incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 60 * 60, 60 ); // start a deepSleepMode with 15 sec
+      MyDeepSleepManager.startDeepSleep(60 * 60, 60);  // start a deepSleepMode with 15 sec
     }
 
     if (aChar == 'v') {
       Serial.println(F("-- start DeepSleep for 1 Hour with no incremental"));
       Serial.println(F("<-- GO"));
-      MyDeepSleepManager.startDeepSleep( 60 * 60 ); // start a deepSleepMode with 15 sec
+      MyDeepSleepManager.startDeepSleep(60 * 60);  // start a deepSleepMode with 15 sec
     }
 
 
@@ -292,7 +298,7 @@ void loop() {
     }
     if (aChar == 'W') {
       Serial.println(F("SETUP WIFI : 'W WifiName,password"));
-      if ( Serial.read() == ' ') {
+      if (Serial.read() == ' ') {
         String ssid = Serial.readStringUntil(',');
         Serial.println(ssid);
         ssid.trim();
@@ -307,26 +313,28 @@ void loop() {
         }
       }
     }
-
   }
   static uint32_t lastDown = millis();
-  if ( bp0Status != digitalRead(BP0) ) {
+  if (bp0Status != digitalRead(BP0)) {
     bp0Status = !bp0Status;
     Serial.print(F("BP0 = "));
     Serial.println(bp0Status);
 
-    digitalWrite( LED1 , LED1_OFF );
+    digitalWrite(LED1, LED1_OFF);
     delay(100);
-    digitalWrite( LED1 , LED1_ON );
+    digitalWrite(LED1, LED1_ON);
     if (bp0Status == BP0_DOWN) {
+      Serial.println(F("BP0 pass DOWN "));
       lastDown = millis();
+    } else {
+      Serial.println(F("BP0 pass UP "));
     }
   }
 
   // if you want to start deep sleep without terminale connected
   // start a deepsleep 15 sec with a long press BP0
-  if (bp0Status == BP0_DOWN && millis() - lastDown  > 3000 ) {
-    Serial.println(F("DeepSleep 15 sec"));
+  if ((bp0Status == BP0_DOWN) && ((millis() - lastDown) > 3000)) {
+    Serial.println(F("DeepSleep 15 sec with BP0"));
     MyDeepSleepManager.startDeepSleep(15);
   }
   delay(10);  // avoid rebounce of BP0 easy way :)
@@ -336,7 +344,7 @@ void loop() {
 // display time a nice way
 String str2digits(const uint8_t digits) {
   String txt;
-  if (digits < 10)  txt = '0';
+  if (digits < 10) txt = '0';
   txt += digits;
   return txt;
 }
@@ -347,7 +355,7 @@ String niceDisplayTime(time_t time) {
 
   String txt;
   // we supose that time < NOT_A_DATE_YEAR is not a date
-  if ( year(time) < NOT_A_DATE_YEAR ) {
+  if (year(time) < NOT_A_DATE_YEAR) {
     txt = "          ";
     txt += time / (24 * 3600);
     txt += ' ';

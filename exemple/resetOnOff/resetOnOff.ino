@@ -33,7 +33,7 @@ DeepSleepManager MyDeepSleepManager;
 
 // the setup function runs once when you press reset or power the board
 void setup() {
-
+  //enableWiFiAtBootTime();  // mendatory for autoconnect WiFi with ESP8266 kernel 3.0
 
   ////////////////////////////////////////////////
   // in your sketch just add these 3 lines on top of setup () to do the same
@@ -46,8 +46,9 @@ void setup() {
 
   // here we start serial just to show that append
   Serial.begin(115200);
-  Serial.println("\r\n\n\n" "resetOnOff DeepSleepManger");
-  if ( MyDeepSleepManager.getRstReason() == REASON_EXT_SYS_RST ) {
+  Serial.println("\r\n\n\n"
+                 "resetOnOff DeepSleepManger");
+  if (MyDeepSleepManager.getRstReason() == REASON_EXT_SYS_RST) {
     Serial.println("This is a button RST reset so we go to sleep undefinitly with all function OFF (including WiFi) so very low power needed");
     Serial.println("ESP is OFF the led is OFF");
     Serial.println("Power supply is up to 10ma with USB   2ma with 3,3v ");
@@ -67,16 +68,14 @@ void setup() {
 
   // initialize digital pin LED_BUILTIN as an output.
   pinMode(LED_BUILTIN, OUTPUT);
-
-
 }
 
 
 // the loop function runs over and over again forever
 // but a reset here will switch off
 void loop() {
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);                       // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);                       // wait for a second
+  digitalWrite(LED_BUILTIN, HIGH);  // turn the LED on (HIGH is the voltage level)
+  delay(1000);                      // wait for a second
+  digitalWrite(LED_BUILTIN, LOW);   // turn the LED off by making the voltage LOW
+  delay(1000);                      // wait for a second
 }

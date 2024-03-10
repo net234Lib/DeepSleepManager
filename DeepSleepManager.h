@@ -35,6 +35,8 @@
    DONE V1.0.03: add a checksum to control RTC ram data
    TOTO ameliorer getTxtRstReason(BP_0);
 
+   V1.1  10/03/2024
+   Add 
 
 **********************************************************************************/
 // trick to trace variables

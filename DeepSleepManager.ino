@@ -20,17 +20,18 @@ This file is part of DeepSleepManager.
 
   
 
-   TODO: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
+   DONE: auto adjust millisec lost in a RTC memory varibale for a better adjust of timestamps
    TODO: save a user struct in RTC memory
+   TODO: propose a nice way to save correction in flash
 **********************************************************************************/
 
 #include <Arduino.h>
 #include <ESP8266WiFi.h>
 
-#define D_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
+#define V_println(x) Serial.print(F(#x " => '")); Serial.print(x); Serial.println("'");
 
 
-#define APP_VERSION   "DeepSleepManager DEV"
+#define APP_VERSION   "DeepSleepManager V1.1"
 
 // GPIO2 on ESP32
 //LED_1 D4(GPIO2)   LED_BUILTIN HERE
